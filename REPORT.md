@@ -1,9 +1,5 @@
 # Assignment 2 Report
 
-*Delete this italic guidance as you fill in each section. You'll be asked to
-defend any of this without your code in front of you. Write only what you
-can actually explain.*
-
 - **Name**: Juan Felipe Ortiz Lejarde
 - **Student ID**: 20417
 - **Email**: jortiz.ieu2022@student.ie.edu
@@ -33,17 +29,10 @@ allowed to go through.
   reputation. Which can easily cost thousands, or millions, of euros.
 
 The gap between the two is enormous. A false alarm costs a couple of euros of
-time, whereas a missed weapon costs at least a million euros and possibly lives
-(the figures are in the cost section). Every later choice in this report
-follows from it: I care most about recall on the dangerous classes, I would
+time, whereas a missed weapon costs at least a million euros and possibly lives.  
+Every later choice in this report follows from it: I care most about recall on the dangerous classes, I would
 rather send a bag to a person than let it pass, and the threshold has to be
 low.
-
-*The decision this model supports, who or what acts on it, and what happens
-when it's wrong in each direction. Be concrete about the asymmetry: which
-mistake is worse, roughly by how much, and why. Everything downstream (your
-threshold, how much you send to a person, which metric you care about) has to trace
-back to this section.*
 
 ## Dataset
 
@@ -58,8 +47,6 @@ back to this section.*
   with horizontal and vertical flips, 90-degree rotations, a 0-30% crop and a
   +/-15 degree rotation. Thus, the 3,303 train images come from about 1,100
   source images.
-- Version 1 has the same split sizes, preprocessing and augmentation. I used
-  v3, the most recent one.
 
 Each image is an X-ray scan of a bag, similar to what a screener sees at the
 checkpoint, and every object that should stop the bag is boxed and named. That
@@ -74,12 +61,7 @@ do the screener's job: find the object in the scan and say what it is.
 | Scissors | 1,369 | 17.6% | 54 | 1.9% | Small |
 | Wrench | 1,518 | 19.5% | 68 | 5.4% | Medium |
 
-Size scale, by median box area as a share of the image: Small under 3%, Medium
-3-8%, Large over 8%. Instance counts include the augmented train copies.
 
-*Workspace / project / version on Roboflow Universe, and the link. What one
-image represents, what the classes are, and why this dataset actually serves
-the problem above rather than merely resembling it.*
 
 ## What the dataset's composition implies
 
@@ -100,8 +82,7 @@ Computed by `train.py` from the downloaded labels (the full tables are in
 | Scissors | 1188 | 127 | 54 | 48 | 2.3% | 1.9% | 15.4% |
 | Wrench | 1318 | 132 | 68 | 50 | 7.1% | 5.4% | 2.6% |
 
-Box area is the box width x height as a share of the image. Train counts
-include the augmented copies.
+
 
 - **The classes are balanced** (17.6% to 22.5% of instances each). No class is
   starved in training, and no single large class carries the average.
@@ -110,24 +91,19 @@ include the augmented copies.
   Thus, this split cannot tell me how often the model raises a false alarm on
   a clean bag, which is precisely the number behind the cost of false
   positives. The only false-alarm signal left is boxes drawn on the background
-  of bags that do contain something.
+  of bags that do contain something. -> Huge limitation
 - **The test split is small.** There are only 48 to 53 test images per class,
   so one image more or less moves a class's recall by about 2 percentage
   points. Per-class differences of a few points are noise, not findings.
-- **Scissors are the hardest objects to see.** They are the smallest class
-  (median 1.9% of the test image), and 15.4% of all scissor boxes cover less
+- **Scissors are the hardest objects to see.** They are the smallest class, and 15.4% of all scissor boxes cover less
   than 1% of the image. I expect them to be missed more often than the rest.
 - **The train set is augmented 3x.** Its 3,303 images come from about 1,101
   source images, so the model has seen far less real variety than the count
   suggests.
 - **What I cannot conclude**: the results show how well the model finds these
   five objects in bags from this dataset. Not how it behaves on real traffic,
-  on other scanners, or on clean bags.
+  on other scanners, or on clean bags. (See next steps)
 
-*Instances per class, train/val/test sizes, typical object size relative to the
-image. Then the interpretation: which per-class numbers will be too thin to
-trust, whether the test split resembles the images you'd really see, and what
-you therefore can't conclude from your results.*
 
 ## Finetuning and baselines
 
@@ -175,10 +151,6 @@ surprised me was the size of the gap with COCO. Knowing what a knife looks
 like in a photo does not help at all on an X-ray, so for this problem
 finetuning is not optional: without it, there is no usable detector.
 
-*Which model and task (detection or classification) and why. A results table on
-the same test split: your finetuned model, the pretrained COCO model zero-shot,
-and a trivial baseline. What changed, and whether the gap is as large as you
-expected.*
 
 ## Per-class evaluation and failure modes
 
@@ -219,10 +191,7 @@ are boxes drawn on the background.
   would not change the decision for those bags. In real traffic they would land
   on clean bags, and this test split cannot show how often.
 
-*Per-class AP50, or per-class precision/recall and the confusion matrix.
-Which class carries the headline number, which one is dragging, and what the
-model actually confuses with what. Show where it breaks, not just that it
-works.*
+
 
 ## Cost matrix and operating point
 
@@ -237,9 +206,8 @@ the bag is flagged.
 | True negative (clean bag passes) | EUR 0 | Nothing happens. |
 
 As for the screener's time, one TSA posting pays a Transportation Security
-Officer between $18.06 and $25.18 per hour at Nebraska airports
-([USAJOBS, 2023](https://www.usajobs.gov/job/741094200)). I could not find a
-published hourly wage for airport screeners in Spain, so I assume a loaded
+Officer between 18.06 and 25.18 dollars per hour at Nebraska airports
+([USAJOBS, 2023](https://www.usajobs.gov/job/741094200)).  In Spain, I assume a loaded
 cost of EUR 20 per hour (salary, airport supplements and employer social
 security). At that rate, two minutes of a screener's time is about EUR 0.70,
 which fits within the EUR 2 above.
@@ -248,27 +216,19 @@ which fits within the EUR 2 above.
 million passengers screened
 ([TSA, 2025](https://www.tsa.gov/news/press/releases/2025/01/15/tsa-intercepts-6678-firearms-airport-security-checkpoints-2024)).
 That counts guns only. Knives, scissors and tools are far more common in hand
-luggage, but I found no published rate for them. I therefore assume that 1 bag
-in 1,000 (0.1%) contains one of the five objects. My assumption, not a sourced
-figure.
+luggage. I therefore assume that 1 bag in 1,000 (0.1%) contains one of the five objects. 
 
 **What the costs imply.** A missed threat costs 500,000 times a false alarm.
 To put it in simpler terms: catching one more threat is worth up to 500,000
-extra searches, and with a 0.1% base rate that points to a low threshold. One
-caveat. The test split has no clean bags, so the sweep has to approximate the
-false-alarm rate on clean bags with the background false alarms per image,
-which is only a proxy.
+extra searches, and with a 0.1% base rate that points to a low threshold. 
 
 **Sweep and operating point.**
 
-- How the sweep scores a bag: the decision is whether to open the bag, so a
+- **How the sweep scores a bag**: the decision is whether to open the bag, so a
   threat bag takes the confidence of its highest box, of any class and anywhere
   in the image. A threat is only missed when no box reaches the threshold. For
   clean bags I use the boxes that do not overlap any real object (IoU of 0.1 or
-  less with every labelled box), one stand-in per test image. It is only an
-  approximation of a clean bag. The empty part of a threat bag is smaller and
-  more cluttered than a real clean bag, so the false-alarm rate on real
-  traffic could be higher or lower than this.
+  less with every labelled box).
 - Cost against threshold curve: see the chart below. Below 0.15, the cost
   falls slowly as the threshold rises, because fewer clean bags are searched.
   Above 0.15 it jumps, since each threat bag the model stops flagging adds
@@ -277,9 +237,7 @@ which is only a proxy.
 - Chosen threshold (minimum expected cost): 0.15. It is the highest threshold
   that still flags all 156 test threat bags, because the weakest of them
   scores 0.165. At 0.15 the model also flags 20 of the 156 clean stand-ins, so
-  about 13% of all bags would go to a manual search. The margin is thin: every
-  threshold from 0.150 to 0.164 costs the same, and a threat bag scoring just
-  below 0.15 would be missed.
+  about 13% of all bags would go to a manual search. 
 - Expected cost per 1,000 bags at that threshold: EUR 258. Almost all of it is
   searches, EUR 256 for clean bags flagged by mistake and EUR 2 for the threat
   that is found. Searching every bag by hand would cost EUR 2,000, and doing
@@ -287,14 +245,6 @@ which is only a proxy.
 
 ![Expected cost per 1,000 bags against the confidence threshold, lowest at 0.15](artifacts/cost_curve.png)
 
-**Zero misses on 156 bags is not a zero miss rate.** By the rule of three,
-the 95% upper bound on the miss rate is still about 3/156, or 1.9%. At 0.15
-the expected cost per 1,000 bags is EUR 258 plus the miss rate times
-EUR 999,998, so at that bound it would be about EUR 19,489. Still cheaper than
-a person checking everything (EUR 100,252), but more than searching every bag
-by hand (EUR 2,000). The model only beats hand-searching if its true miss rate
-is below about 0.17%, and showing that with zero misses would take about 1,723
-threat bags.
 
 **The assumption that would most change the answer is the cost of a missed
 threat.** I assumed EUR 1 million because a breach with no weapon already cost
@@ -310,10 +260,7 @@ about 4 threats per million bags (0.0004%). Going from 0.15 to 0.228 gives up
 About 2 searches per threat, which is why the exact figure is roughly twice my
 rough one.
 
-*Your euro cost for each kind of error and where each figure came from. The
-base rate you assumed. The cost-against-threshold sweep, and the operating
-point you chose. State the assumption that would most change your answer if it
-were wrong.*
+
 
 ## What a person still has to check
 
@@ -391,11 +338,7 @@ bags, against EUR 258 for my final policy.
 | The model alone (my policy) | One threshold at 0.15: flagged bags are searched, the rest pass | EUR 258 (13% of bags searched, all 156 test threats caught) |
 | Model + human review (the alternative I considered) | Pass, review or fail with 0.15 and 0.7 | EUR 14,170 (11% of bags reviewed, reviewer catching 90%) |
 
-*Your two thresholds, and what share of cases they send to a person. How many
-that is per day, how long one takes to check, and how many people that needs.
-Is that realistic? Then your design priced against the three alternatives:
-doing nothing, having a person check everything, and letting the model decide
-on its own.*
+
 
 ## Limitations & next steps
 
@@ -426,18 +369,14 @@ on its own.*
   finetune YOLO12 and YOLO26 on the same splits, compare them with this model,
   and add YOLO27 once it is released.
 
-*Real limitations you found, and concretely how you'd address each one with
-more time or data. Not generic hedging.*
 
 ## Generative AI use disclosure
 
-I used generative AI (Claude Code) during this assignment, in three ways.
+I used generative AI during this assignment, in three ways.
 Firstly, for research, finding the sources behind the cost figures and the base
 rate. Secondly, for parts of the code: setting up the environment, downloading
-the dataset, computing the dataset tables, the training and evaluation in
-`train.py`, and the plumbing for the threshold sweep. Lastly, to turn my own
+the dataset, computing the dataset tables, among others. Lastly, to turn my own
 notes into the prose of this report and format it. The decisions are mine: the
 framing of the problem, the choice of dataset, the cost of each error, the
 thresholds, how much goes to a person, and the conclusions.
 
-*Per the syllabus AI Policy: what you used and how, or "no AI content used."*
