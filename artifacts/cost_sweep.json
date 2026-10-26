@@ -5,6 +5,7 @@
     "clean_score": "stand-in: highest confidence among boxes with IoU <= 0.1 with every ground-truth box",
     "model_alone": "searched if score >= t, else pass",
     "design": "pass if score < t_low, review if t_low <= score < t_high, search if score >= t_high",
+    "chosen_policy": "design with t_high = 0.7 and the cost-optimal t_low for it",
     "reviewer": "catches a reviewed threat with probability reviewer_catch, clears a reviewed clean bag",
     "ties": "lowest threshold among equal costs"
   },
@@ -21,6 +22,7 @@
     "review_share_of_time": 0.6666666666666666,
     "shift_hours": 8,
     "bags_per_day": 90700,
+    "search_minutes": 2,
     "clean_max_iou": 0.1
   },
   "test_bags": {
@@ -2332,114 +2334,13 @@
       1000000.0
     ]
   },
-  "model_alone": {
-    "t_low": 0.15,
-    "t_high": 0.15,
-    "cost_per_1000": 258.15384615384613,
-    "review_share": 0.0,
-    "search_share": 0.12907692307692306,
-    "per_1000_bags": {
-      "threat": {
-        "pass": 0.0,
-        "review": 0.0,
-        "search": 1.0
-      },
-      "clean": {
-        "pass": 870.9230769230769,
-        "review": 0.0,
-        "search": 128.07692307692307
-      }
-    },
-    "test_counts": {
-      "threat": {
-        "pass": 0,
-        "review": 0,
-        "search": 156
-      },
-      "clean": {
-        "pass": 136,
-        "review": 0,
-        "search": 20
-      }
-    },
-    "reviews_per_day": 0.0,
-    "review_hours_per_day": 0.0,
-    "shifts_per_day": 0.0
-  },
-  "model_alone_at_0.7": {
-    "t_low": 0.7,
-    "t_high": 0.7,
-    "cost_per_1000": 141065.78205128197,
-    "review_share": 0.0,
-    "search_share": 0.020070512820512865,
-    "per_1000_bags": {
-      "threat": {
-        "pass": 0.14102564102564097,
-        "review": 0.0,
-        "search": 0.858974358974359
-      },
-      "clean": {
-        "pass": 979.7884615384615,
-        "review": 0.0,
-        "search": 19.211538461538503
-      }
-    },
-    "test_counts": {
-      "threat": {
-        "pass": 22,
-        "review": 0,
-        "search": 134
-      },
-      "clean": {
-        "pass": 153,
-        "review": 0,
-        "search": 3
-      }
-    },
-    "reviews_per_day": 0.0,
-    "review_hours_per_day": 0.0,
-    "shifts_per_day": 0.0
-  },
-  "design_optimal": {
-    "t_low": 0.15,
-    "t_high": 0.15,
-    "cost_per_1000": 258.15384615384613,
-    "review_share": 0.0,
-    "search_share": 0.12907692307692306,
-    "per_1000_bags": {
-      "threat": {
-        "pass": 0.0,
-        "review": 0.0,
-        "search": 1.0
-      },
-      "clean": {
-        "pass": 870.9230769230769,
-        "review": 0.0,
-        "search": 128.07692307692307
-      }
-    },
-    "test_counts": {
-      "threat": {
-        "pass": 0,
-        "review": 0,
-        "search": 156
-      },
-      "clean": {
-        "pass": 136,
-        "review": 0,
-        "search": 20
-      }
-    },
-    "reviews_per_day": 0.0,
-    "review_hours_per_day": 0.0,
-    "shifts_per_day": 0.0
-  },
-  "design_t_high_0.7": {
+  "chosen_policy": {
     "t_low": 0.15,
     "t_high": 0.7,
     "cost_per_1000": 14170.21057692307,
     "review_share": 0.1090064102564102,
     "search_share": 0.020070512820512865,
+    "pass_share": 0.8709230769230769,
     "per_1000_bags": {
       "threat": {
         "pass": 0.0,
@@ -2466,7 +2367,499 @@
     },
     "reviews_per_day": 9886.881410256405,
     "review_hours_per_day": 82.39067841880338,
-    "shifts_per_day": 15.448252203525634
+    "shifts_per_day": 15.448252203525634,
+    "searches_per_day": 1820.3955128205168,
+    "search_shifts_per_day": 7.58498130341882
+  },
+  "alternative_single_threshold": {
+    "t_low": 0.15,
+    "t_high": 0.15,
+    "cost_per_1000": 258.15384615384613,
+    "review_share": 0.0,
+    "search_share": 0.12907692307692306,
+    "pass_share": 0.8709230769230769,
+    "per_1000_bags": {
+      "threat": {
+        "pass": 0.0,
+        "review": 0.0,
+        "search": 1.0
+      },
+      "clean": {
+        "pass": 870.9230769230769,
+        "review": 0.0,
+        "search": 128.07692307692307
+      }
+    },
+    "test_counts": {
+      "threat": {
+        "pass": 0,
+        "review": 0,
+        "search": 156
+      },
+      "clean": {
+        "pass": 136,
+        "review": 0,
+        "search": 20
+      }
+    },
+    "reviews_per_day": 0.0,
+    "review_hours_per_day": 0.0,
+    "shifts_per_day": 0.0,
+    "searches_per_day": 11707.27692307692,
+    "search_shifts_per_day": 48.7803205128205
+  },
+  "t_low_options": [
+    {
+      "t_low": 0.05,
+      "t_high": 0.7,
+      "cost_per_1000": 14186.220192307685,
+      "review_share": 0.17304487179487174,
+      "search_share": 0.020070512820512865,
+      "pass_share": 0.8068846153846154,
+      "per_1000_bags": {
+        "threat": {
+          "pass": 0.0,
+          "review": 0.14102564102564097,
+          "search": 0.858974358974359
+        },
+        "clean": {
+          "pass": 806.8846153846154,
+          "review": 172.9038461538461,
+          "search": 19.211538461538503
+        }
+      },
+      "test_counts": {
+        "threat": {
+          "pass": 0,
+          "review": 22,
+          "search": 134
+        },
+        "clean": {
+          "pass": 126,
+          "review": 27,
+          "search": 3
+        }
+      },
+      "reviews_per_day": 15695.169871794868,
+      "review_hours_per_day": 130.79308226495723,
+      "shifts_per_day": 24.523702924679483,
+      "searches_per_day": 1820.3955128205168,
+      "search_shifts_per_day": 7.58498130341882
+    },
+    {
+      "t_low": 0.1,
+      "t_high": 0.7,
+      "cost_per_1000": 14175.013461538454,
+      "review_share": 0.1282179487179487,
+      "search_share": 0.020070512820512865,
+      "pass_share": 0.8517115384615385,
+      "per_1000_bags": {
+        "threat": {
+          "pass": 0.0,
+          "review": 0.14102564102564097,
+          "search": 0.858974358974359
+        },
+        "clean": {
+          "pass": 851.7115384615385,
+          "review": 128.07692307692307,
+          "search": 19.211538461538503
+        }
+      },
+      "test_counts": {
+        "threat": {
+          "pass": 0,
+          "review": 22,
+          "search": 134
+        },
+        "clean": {
+          "pass": 133,
+          "review": 20,
+          "search": 3
+        }
+      },
+      "reviews_per_day": 11629.367948717947,
+      "review_hours_per_day": 96.91139957264954,
+      "shifts_per_day": 18.17088741987179,
+      "searches_per_day": 1820.3955128205168,
+      "search_shifts_per_day": 7.58498130341882
+    },
+    {
+      "t_low": 0.15,
+      "t_high": 0.7,
+      "cost_per_1000": 14170.21057692307,
+      "review_share": 0.1090064102564102,
+      "search_share": 0.020070512820512865,
+      "pass_share": 0.8709230769230769,
+      "per_1000_bags": {
+        "threat": {
+          "pass": 0.0,
+          "review": 0.14102564102564097,
+          "search": 0.858974358974359
+        },
+        "clean": {
+          "pass": 870.9230769230769,
+          "review": 108.86538461538456,
+          "search": 19.211538461538503
+        }
+      },
+      "test_counts": {
+        "threat": {
+          "pass": 0,
+          "review": 22,
+          "search": 134
+        },
+        "clean": {
+          "pass": 136,
+          "review": 17,
+          "search": 3
+        }
+      },
+      "reviews_per_day": 9886.881410256405,
+      "review_hours_per_day": 82.39067841880338,
+      "shifts_per_day": 15.448252203525634,
+      "searches_per_day": 1820.3955128205168,
+      "search_shifts_per_day": 7.58498130341882
+    }
+  ],
+  "reviewer_catch_sensitivity": [
+    {
+      "reviewer_catch": 0.9,
+      "t_low": 0.15,
+      "t_high": 0.7,
+      "cost_per_1000": 14170.21057692307,
+      "review_share": 0.1090064102564102,
+      "search_share": 0.020070512820512865,
+      "pass_share": 0.8709230769230769,
+      "per_1000_bags": {
+        "threat": {
+          "pass": 0.0,
+          "review": 0.14102564102564097,
+          "search": 0.858974358974359
+        },
+        "clean": {
+          "pass": 870.9230769230769,
+          "review": 108.86538461538456,
+          "search": 19.211538461538503
+        }
+      },
+      "test_counts": {
+        "threat": {
+          "pass": 0,
+          "review": 22,
+          "search": 134
+        },
+        "clean": {
+          "pass": 136,
+          "review": 17,
+          "search": 3
+        }
+      },
+      "reviews_per_day": 9886.881410256405,
+      "review_hours_per_day": 82.39067841880338,
+      "shifts_per_day": 15.448252203525634,
+      "searches_per_day": 1820.3955128205168,
+      "search_shifts_per_day": 7.58498130341882
+    },
+    {
+      "reviewer_catch": 0.95,
+      "t_low": 0.15,
+      "t_high": 0.7,
+      "cost_per_1000": 7118.942628205131,
+      "review_share": 0.1090064102564102,
+      "search_share": 0.020070512820512865,
+      "pass_share": 0.8709230769230769,
+      "per_1000_bags": {
+        "threat": {
+          "pass": 0.0,
+          "review": 0.14102564102564097,
+          "search": 0.858974358974359
+        },
+        "clean": {
+          "pass": 870.9230769230769,
+          "review": 108.86538461538456,
+          "search": 19.211538461538503
+        }
+      },
+      "test_counts": {
+        "threat": {
+          "pass": 0,
+          "review": 22,
+          "search": 134
+        },
+        "clean": {
+          "pass": 136,
+          "review": 17,
+          "search": 3
+        }
+      },
+      "reviews_per_day": 9886.881410256405,
+      "review_hours_per_day": 82.39067841880338,
+      "shifts_per_day": 15.448252203525634,
+      "searches_per_day": 1820.3955128205168,
+      "search_shifts_per_day": 7.58498130341882
+    },
+    {
+      "reviewer_catch": 0.99,
+      "t_low": 0.15,
+      "t_high": 0.7,
+      "cost_per_1000": 1477.92826923077,
+      "review_share": 0.1090064102564102,
+      "search_share": 0.020070512820512865,
+      "pass_share": 0.8709230769230769,
+      "per_1000_bags": {
+        "threat": {
+          "pass": 0.0,
+          "review": 0.14102564102564097,
+          "search": 0.858974358974359
+        },
+        "clean": {
+          "pass": 870.9230769230769,
+          "review": 108.86538461538456,
+          "search": 19.211538461538503
+        }
+      },
+      "test_counts": {
+        "threat": {
+          "pass": 0,
+          "review": 22,
+          "search": 134
+        },
+        "clean": {
+          "pass": 136,
+          "review": 17,
+          "search": 3
+        }
+      },
+      "reviews_per_day": 9886.881410256405,
+      "review_hours_per_day": 82.39067841880338,
+      "shifts_per_day": 15.448252203525634,
+      "searches_per_day": 1820.3955128205168,
+      "search_shifts_per_day": 7.58498130341882
+    },
+    {
+      "reviewer_catch": 0.9986493268441083,
+      "t_low": 0.15,
+      "t_high": 0.7,
+      "cost_per_1000": 258.1538461538308,
+      "review_share": 0.1090064102564102,
+      "search_share": 0.020070512820512865,
+      "pass_share": 0.8709230769230769,
+      "per_1000_bags": {
+        "threat": {
+          "pass": 0.0,
+          "review": 0.14102564102564097,
+          "search": 0.858974358974359
+        },
+        "clean": {
+          "pass": 870.9230769230769,
+          "review": 108.86538461538456,
+          "search": 19.211538461538503
+        }
+      },
+      "test_counts": {
+        "threat": {
+          "pass": 0,
+          "review": 22,
+          "search": 134
+        },
+        "clean": {
+          "pass": 136,
+          "review": 17,
+          "search": 3
+        }
+      },
+      "reviews_per_day": 9886.881410256405,
+      "review_hours_per_day": 82.39067841880338,
+      "shifts_per_day": 15.448252203525634,
+      "searches_per_day": 1820.3955128205168,
+      "search_shifts_per_day": 7.58498130341882
+    },
+    {
+      "reviewer_catch": 1.0,
+      "t_low": 0.15,
+      "t_high": 0.7,
+      "cost_per_1000": 67.67467948717956,
+      "review_share": 0.1090064102564102,
+      "search_share": 0.020070512820512865,
+      "pass_share": 0.8709230769230769,
+      "per_1000_bags": {
+        "threat": {
+          "pass": 0.0,
+          "review": 0.14102564102564097,
+          "search": 0.858974358974359
+        },
+        "clean": {
+          "pass": 870.9230769230769,
+          "review": 108.86538461538456,
+          "search": 19.211538461538503
+        }
+      },
+      "test_counts": {
+        "threat": {
+          "pass": 0,
+          "review": 22,
+          "search": 134
+        },
+        "clean": {
+          "pass": 136,
+          "review": 17,
+          "search": 3
+        }
+      },
+      "reviews_per_day": 9886.881410256405,
+      "review_hours_per_day": 82.39067841880338,
+      "shifts_per_day": 15.448252203525634,
+      "searches_per_day": 1820.3955128205168,
+      "search_shifts_per_day": 7.58498130341882
+    }
+  ],
+  "model_alone": {
+    "t_low": 0.15,
+    "t_high": 0.15,
+    "cost_per_1000": 258.15384615384613,
+    "review_share": 0.0,
+    "search_share": 0.12907692307692306,
+    "pass_share": 0.8709230769230769,
+    "per_1000_bags": {
+      "threat": {
+        "pass": 0.0,
+        "review": 0.0,
+        "search": 1.0
+      },
+      "clean": {
+        "pass": 870.9230769230769,
+        "review": 0.0,
+        "search": 128.07692307692307
+      }
+    },
+    "test_counts": {
+      "threat": {
+        "pass": 0,
+        "review": 0,
+        "search": 156
+      },
+      "clean": {
+        "pass": 136,
+        "review": 0,
+        "search": 20
+      }
+    },
+    "reviews_per_day": 0.0,
+    "review_hours_per_day": 0.0,
+    "shifts_per_day": 0.0,
+    "searches_per_day": 11707.27692307692,
+    "search_shifts_per_day": 48.7803205128205
+  },
+  "model_alone_at_0.7": {
+    "t_low": 0.7,
+    "t_high": 0.7,
+    "cost_per_1000": 141065.78205128197,
+    "review_share": 0.0,
+    "search_share": 0.020070512820512865,
+    "pass_share": 0.9799294871794871,
+    "per_1000_bags": {
+      "threat": {
+        "pass": 0.14102564102564097,
+        "review": 0.0,
+        "search": 0.858974358974359
+      },
+      "clean": {
+        "pass": 979.7884615384615,
+        "review": 0.0,
+        "search": 19.211538461538503
+      }
+    },
+    "test_counts": {
+      "threat": {
+        "pass": 22,
+        "review": 0,
+        "search": 134
+      },
+      "clean": {
+        "pass": 153,
+        "review": 0,
+        "search": 3
+      }
+    },
+    "reviews_per_day": 0.0,
+    "review_hours_per_day": 0.0,
+    "shifts_per_day": 0.0,
+    "searches_per_day": 1820.3955128205168,
+    "search_shifts_per_day": 7.58498130341882
+  },
+  "design_optimal": {
+    "t_low": 0.15,
+    "t_high": 0.15,
+    "cost_per_1000": 258.15384615384613,
+    "review_share": 0.0,
+    "search_share": 0.12907692307692306,
+    "pass_share": 0.8709230769230769,
+    "per_1000_bags": {
+      "threat": {
+        "pass": 0.0,
+        "review": 0.0,
+        "search": 1.0
+      },
+      "clean": {
+        "pass": 870.9230769230769,
+        "review": 0.0,
+        "search": 128.07692307692307
+      }
+    },
+    "test_counts": {
+      "threat": {
+        "pass": 0,
+        "review": 0,
+        "search": 156
+      },
+      "clean": {
+        "pass": 136,
+        "review": 0,
+        "search": 20
+      }
+    },
+    "reviews_per_day": 0.0,
+    "review_hours_per_day": 0.0,
+    "shifts_per_day": 0.0,
+    "searches_per_day": 11707.27692307692,
+    "search_shifts_per_day": 48.7803205128205
+  },
+  "design_t_high_0.7": {
+    "t_low": 0.15,
+    "t_high": 0.7,
+    "cost_per_1000": 14170.21057692307,
+    "review_share": 0.1090064102564102,
+    "search_share": 0.020070512820512865,
+    "pass_share": 0.8709230769230769,
+    "per_1000_bags": {
+      "threat": {
+        "pass": 0.0,
+        "review": 0.14102564102564097,
+        "search": 0.858974358974359
+      },
+      "clean": {
+        "pass": 870.9230769230769,
+        "review": 108.86538461538456,
+        "search": 19.211538461538503
+      }
+    },
+    "test_counts": {
+      "threat": {
+        "pass": 0,
+        "review": 22,
+        "search": 134
+      },
+      "clean": {
+        "pass": 136,
+        "review": 17,
+        "search": 3
+      }
+    },
+    "reviews_per_day": 9886.881410256405,
+    "review_hours_per_day": 82.39067841880338,
+    "shifts_per_day": 15.448252203525634,
+    "searches_per_day": 1820.3955128205168,
+    "search_shifts_per_day": 7.58498130341882
   },
   "comparison": [
     {
@@ -2485,19 +2878,22 @@
       "review_share": 0.0
     },
     {
-      "option": "Model alone (t = 0.15)",
-      "cost_per_1000": 258.15384615384613,
-      "review_share": 0.0
-    },
-    {
-      "option": "Model + review, cost-optimal (0.15 / 0.15)",
-      "cost_per_1000": 258.15384615384613,
-      "review_share": 0.0
-    },
-    {
-      "option": "Model + review, t_high = 0.7 (0.15 / 0.7)",
+      "option": "Chosen policy: model + review (0.15 / 0.7)",
       "cost_per_1000": 14170.21057692307,
-      "review_share": 0.1090064102564102
+      "review_share": 0.1090064102564102,
+      "search_share": 0.020070512820512865
+    },
+    {
+      "option": "Alternative: model alone, one threshold (t = 0.15)",
+      "cost_per_1000": 258.15384615384613,
+      "review_share": 0.0,
+      "search_share": 0.12907692307692306
+    },
+    {
+      "option": "Model + review, cost-optimal pair (0.15 / 0.15)",
+      "cost_per_1000": 258.15384615384613,
+      "review_share": 0.0,
+      "search_share": 0.12907692307692306
     }
   ],
   "break_even": {
@@ -2607,6 +3003,21 @@
       "design_review_share": 0.0,
       "t_high_0.7_t_low": 0.15,
       "t_high_0.7_cost_per_1000": 28272.74647435896,
+      "t_high_0.7_review_share": 0.1090064102564102
+    },
+    {
+      "case": "reviewer catches 95%",
+      "change": {
+        "reviewer_catch": 0.95
+      },
+      "model_alone_t": 0.15,
+      "model_alone_cost_per_1000": 258.15384615384613,
+      "design_t_low": 0.15,
+      "design_t_high": 0.15,
+      "design_cost_per_1000": 258.15384615384613,
+      "design_review_share": 0.0,
+      "t_high_0.7_t_low": 0.15,
+      "t_high_0.7_cost_per_1000": 7118.942628205131,
       "t_high_0.7_review_share": 0.1090064102564102
     },
     {

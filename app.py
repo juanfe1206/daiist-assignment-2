@@ -10,10 +10,11 @@ Built only from what the training stage already produced. Nothing is trained her
 - artifacts/metrics.json             per-class AP50, AP50-95, P, R for the model and both baselines
 - artifacts/ultralytics_test/        Ultralytics' own test plots
 
-Policy (REPORT.md): a bag whose highest box scores 0.15 or above goes to a manual
-search, every other bag passes. In the three-outcome framing both thresholds sit at
-0.15, so the review band is empty. The alternative considered was a review band
-from 0.15 to 0.7.
+Policy (REPORT.md): a bag whose highest box scores below t_low passes, from t_low
+up to 0.7 a screener checks the X-ray image and decides, and from 0.7 up it goes
+straight to a manual search. t_low is the cost-optimal lower threshold for
+t_high = 0.7 (costing.chosen_pair). The alternative compared is one threshold
+(the best single threshold, no review band).
 
 Layout: two threshold sliders at the top drive every view below them.
   1. Cost and review load   bag-level confusion matrix per 1,000 bags, cost, review share, cost curve
@@ -45,8 +46,6 @@ PORT = int(os.environ.get("APP_PORT", "7860"))  # check.py reads the same variab
 IMGSZ = 416  # same as train.py: the dataset is 416x416
 PRED_CONF = 0.001  # same as train.py: keep almost every box, the thresholds decide later
 
-CHOSEN_T_LOW = CHOSEN_T_HIGH = 0.15  # the policy in REPORT.md: one threshold, no review band
-ALTERNATIVE_T_HIGH = costing.PROVISIONAL_T_HIGH  # the 0.15 / 0.7 review band considered
 
 DECISIONS = {"pass": "Pass", "review": "Human review", "search": "Manual search"}
 
@@ -57,6 +56,10 @@ SCORES = costing.load_bag_scores()  # 156 threat bags and 156 clean stand-ins fr
 CURVE = costing.sweep(SCORES)  # model-alone cost per 1,000 bags at every threshold
 METRICS = json.loads((ARTIFACTS / "metrics.json").read_text())
 K = costing.DEFAULT_COSTS
+
+CHOSEN_T_LOW, CHOSEN_T_HIGH = costing.chosen_pair(SCORES, K)  # the policy in REPORT.md: 0.15 / 0.7
+ALTERNATIVE_T = costing.best_threshold(SCORES, K)  # the alternative compared: one threshold at 0.15
+CHOSEN = f"{CHOSEN_T_LOW:g} / {CHOSEN_T_HIGH:g}"
 
 ASSUMPTIONS = (
     f"**Assumptions** (REPORT.md): base rate **1 threat bag in {1 / K.base_rate:,.0f}**. "
@@ -93,17 +96,21 @@ def cost_summary(t_low: float, t_high: float) -> tuple[str, str]:
     """Headline numbers and the bag-level confusion matrix (per 1,000 bags) for one pair of thresholds."""
     r = costing.evaluate(SCORES, t_low, t_high)
     chosen = costing.evaluate(SCORES, CHOSEN_T_LOW, CHOSEN_T_HIGH)["cost_per_1000"]
+    alternative = costing.evaluate(SCORES, ALTERNATIVE_T)["cost_per_1000"]
     band = "no review band" if t_low == t_high else f"review band {t_low:g} to {t_high:g}"
     diff = r["cost_per_1000"] - chosen
 
     headline = (
         f"### Thresholds {t_low:g} / {t_high:g} ({band})\n\n"
-        f"| Expected cost per 1,000 bags | Sent to human review | Sent to manual search | Reviews a day | Screener shifts a day |\n"
-        f"|---:|---:|---:|---:|---:|\n"
+        f"| Expected cost per 1,000 bags | Sent to human review | Sent to manual search | Reviews a day "
+        f"| Review shifts a day | Searches a day | Search shifts a day |\n"
+        f"|---:|---:|---:|---:|---:|---:|---:|\n"
         f"| **€{r['cost_per_1000']:,.0f}** | **{100 * r['review_share']:.1f}%** | {100 * r['search_share']:.1f}% "
-        f"| {r['reviews_per_day']:,.0f} | {r['shifts_per_day']:.1f} |\n\n"
-        f"Chosen policy (0.15 / 0.15): €{chosen:,.0f} per 1,000 bags. "
-        f"Difference at the current thresholds: {'+' if diff >= 0 else '-'}€{abs(diff):,.0f}."
+        f"| {r['reviews_per_day']:,.0f} | {r['shifts_per_day']:.1f} "
+        f"| {r['searches_per_day']:,.0f} | {r['search_shifts_per_day']:.1f} |\n\n"
+        f"Chosen policy ({CHOSEN}): €{chosen:,.0f} per 1,000 bags. "
+        f"Alternative, one threshold at {ALTERNATIVE_T:g}: €{alternative:,.0f}. "
+        f"Difference from the chosen policy at the current thresholds: {'+' if diff >= 0 else '-'}€{abs(diff):,.0f}."
     )
 
     per, n = r["per_1000_bags"], r["test_counts"]
@@ -125,7 +132,7 @@ def cost_summary(t_low: float, t_high: float) -> tuple[str, str]:
 
 
 def cost_curve(t_low: float, t_high: float):
-    """Model-alone cost against threshold, with the chosen threshold and the current slider marked."""
+    """Model-alone cost against threshold, with the chosen review band, the alternative and the sliders marked."""
     ink, ink2, muted, grid, axis, surface = "#0b0b0b", "#52514e", "#898781", "#e1e0d9", "#c3c2b7", "#fcfcfb"
     series, current = "#2a78d6", "#d6532a"
 
@@ -136,8 +143,11 @@ def cost_curve(t_low: float, t_high: float):
     fig.patch.set_facecolor(surface)
     ax.set_facecolor(surface)
     ax.step(costing.THRESHOLDS, CURVE, where="post", color=series, linewidth=2, label="Model alone (one threshold)")
-    ax.plot([CHOSEN_T_LOW], [at(CHOSEN_T_LOW)], "o", markersize=15, markerfacecolor="none", markeredgecolor=series,
-            markeredgewidth=2, zorder=3, label=f"Chosen threshold {CHOSEN_T_LOW:g}: €{at(CHOSEN_T_LOW):,.0f}")
+    chosen_cost = costing.evaluate(SCORES, CHOSEN_T_LOW, CHOSEN_T_HIGH)["cost_per_1000"]
+    ax.axvspan(CHOSEN_T_LOW, CHOSEN_T_HIGH, color=series, alpha=0.08, linewidth=0, zorder=0,
+               label=f"Chosen policy: review band {CHOSEN}, €{chosen_cost:,.0f}")
+    ax.plot([ALTERNATIVE_T], [at(ALTERNATIVE_T)], "o", markersize=15, markerfacecolor="none", markeredgecolor=series,
+            markeredgewidth=2, zorder=3, label=f"Alternative: one threshold {ALTERNATIVE_T:g}: €{at(ALTERNATIVE_T):,.0f}")
     ax.plot([t_low], [at(t_low)], "D", markersize=7, color=current, markeredgecolor=surface,
             markeredgewidth=1.5, zorder=4, label=f"Slider t_low {t_low:g}, used alone: €{at(t_low):,.0f}")
     if t_low != t_high:
@@ -149,7 +159,7 @@ def cost_curve(t_low: float, t_high: float):
     ax.set_yscale("log")
     ax.set_xlim(costing.THRESHOLDS[0] * 0.9, 1.0)
     ax.set_ylim(min(CURVE.min() * 0.3, 1e6), 1.6e6)
-    ax.xaxis.set_major_locator(FixedLocator([0.001, 0.01, 0.1, 0.15, 0.5, 1.0]))
+    ax.xaxis.set_major_locator(FixedLocator([0.001, 0.01, 0.1, 0.15, 0.7, 1.0]))
     ax.xaxis.set_minor_locator(NullLocator())
     ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
     ax.yaxis.set_major_locator(FixedLocator([100, 1e3, 1e4, 1e5, 1e6]))
@@ -243,9 +253,11 @@ with gr.Blocks(title="X-ray baggage screening", analytics_enabled=False) as demo
         "# X-ray baggage screening: thresholds, cost and review load\n"
         "Finetuned yolo11n on X-ray baggage (Gun, Knife, Pliers, Scissors, Wrench). "
         "A bag's score is its highest box, of any class. "
-        "**Chosen policy: one threshold at 0.15.** Bags scoring 0.15 or above go to a manual search, "
-        "the rest pass, so both sliders sit at 0.15 and nobody reviews images. "
-        "Move the sliders to see what a review band would cost (the alternative considered was 0.15 / 0.7)."
+        f"**Chosen policy: {CHOSEN}.** Bags scoring below {CHOSEN_T_LOW:g} pass, "
+        f"from {CHOSEN_T_LOW:g} up to {CHOSEN_T_HIGH:g} a screener checks the X-ray image and decides, "
+        f"and from {CHOSEN_T_HIGH:g} up the bag goes straight to a manual search. "
+        f"The alternative compared is one threshold at {ALTERNATIVE_T:g} (no review band). "
+        "Move the sliders to see the cost and staffing of any pair."
     )
     with gr.Row():
         t_low = gr.Slider(0.001, 0.99, value=CHOSEN_T_LOW, step=0.001,
@@ -253,8 +265,8 @@ with gr.Blocks(title="X-ray baggage screening", analytics_enabled=False) as demo
         t_high = gr.Slider(0.001, 0.99, value=CHOSEN_T_HIGH, step=0.001,
                            label="t_high: at or above this the bag goes to a manual search (between: human review)")
     with gr.Row():
-        chosen_btn = gr.Button("Chosen policy (0.15 / 0.15)", variant="primary")
-        alternative_btn = gr.Button(f"Alternative considered (0.15 / {ALTERNATIVE_T_HIGH:g})")
+        chosen_btn = gr.Button(f"Chosen policy ({CHOSEN})", variant="primary")
+        alternative_btn = gr.Button(f"Alternative: one threshold ({ALTERNATIVE_T:g})")
 
     with gr.Tabs():
         with gr.Tab("1. Cost and review load"):
@@ -302,7 +314,7 @@ with gr.Blocks(title="X-ray baggage screening", analytics_enabled=False) as demo
     t_high.input(lambda lo, hi, im: refresh(*keep_high(lo, hi), im), [t_low, t_high, image_in], outputs,
                  trigger_mode="always_last")
     chosen_btn.click(lambda im: refresh(CHOSEN_T_LOW, CHOSEN_T_HIGH, im), [image_in], outputs)
-    alternative_btn.click(lambda im: refresh(CHOSEN_T_LOW, ALTERNATIVE_T_HIGH, im), [image_in], outputs)
+    alternative_btn.click(lambda im: refresh(ALTERNATIVE_T, ALTERNATIVE_T, im), [image_in], outputs)
     image_in.change(screen, [image_in, t_low, t_high], bag)
     demo.load(dashboard, [t_low, t_high], views)
 
