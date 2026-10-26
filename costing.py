@@ -10,12 +10,16 @@ Method (REPORT.md, "Cost matrix and operating point" and "What a person still
 has to check"):
 
 - The decision unit is one bag, i.e. one test image.
-- Threat-bag score: the highest confidence among the boxes that sit on a real
-  object (IoU >= 0.5 with a ground-truth box, any class). 0 if there is none.
-- The test split has no clean bags, so the clean-bag score is approximated by
-  the "clean part" of each test image: the highest confidence among the boxes
-  that sit on no real object (IoU < 0.5 with every ground-truth box). Those
-  156 values stand in for 156 clean bags. It is only a proxy.
+- Threat-bag score: the highest confidence among ALL boxes in the image (any
+  class, wherever they are). The decision is whether to open the bag, so if the
+  model fires anything on a bag that holds a threat, the bag is searched and the
+  threat found. A threat is missed only when no box reaches the threshold.
+- The test split has no clean bags, so a clean bag is approximated by the empty
+  content of each test image: the highest confidence among the boxes that do
+  not overlap any real object (IoU <= CLEAN_MAX_IOU with every ground-truth
+  box). Those 156 values stand in for 156 clean bags. It is only an
+  approximation: the empty part of a threat bag is smaller and more cluttered
+  than a real clean bag.
 - Model alone: a bag is searched if its score >= t, otherwise it passes.
 - Model + person: score < t_low passes, t_low <= score < t_high goes to a
   screener for a second look, score >= t_high goes straight to a manual search.
@@ -63,7 +67,7 @@ REVIEW_COST = REVIEW_SECONDS / 3600 * SCREENER_EUR_PER_HOUR / REVIEW_SHARE_OF_TI
 REVIEWER_CATCH = 0.9
 
 # ------------------------------------------------------------------ sweep set-up
-MATCH_IOU = 0.5  # a box "sits on" a real object at IoU >= 0.5
+CLEAN_MAX_IOU = 0.1  # a box counts as "on empty content" if its IoU with every real object is <= this
 THRESHOLDS = np.round(np.arange(1, 991) / 1000, 3)  # 0.001 to 0.990
 PROVISIONAL_T_HIGH = 0.7  # the student's provisional upper threshold
 
@@ -105,20 +109,21 @@ def iou(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return inter / (area_a[:, None] + area_b[None, :] - inter)
 
 
-def image_scores(gt: np.ndarray, pred: np.ndarray, match_iou: float = MATCH_IOU) -> tuple[float, float]:
-    """(threat score, clean-part score) for one image. gt: class,x1,y1,x2,y2. pred: class,conf,x1,y1,x2,y2."""
+def image_scores(gt: np.ndarray, pred: np.ndarray, clean_max_iou: float = CLEAN_MAX_IOU) -> tuple[float, float]:
+    """(threat-bag score, clean stand-in score) for one image. gt: class,x1,y1,x2,y2. pred: class,conf,x1,y1,x2,y2."""
     if not len(pred):
         return 0.0, 0.0
-    on_object = iou(pred[:, 2:6], gt[:, 1:5]).max(axis=1) >= match_iou if len(gt) else np.zeros(len(pred), bool)
-    threat = float(pred[on_object, 1].max()) if on_object.any() else 0.0
-    clean = float(pred[~on_object, 1].max()) if (~on_object).any() else 0.0
+    threat = float(pred[:, 1].max())
+    overlap = iou(pred[:, 2:6], gt[:, 1:5]).max(axis=1) if len(gt) else np.zeros(len(pred))
+    empty = overlap <= clean_max_iou
+    clean = float(pred[empty, 1].max()) if empty.any() else 0.0
     return threat, clean
 
 
-def load_bag_scores(path: Path = PREDICTIONS, model: str = MODEL, match_iou: float = MATCH_IOU) -> BagScores:
+def load_bag_scores(path: Path = PREDICTIONS, model: str = MODEL, clean_max_iou: float = CLEAN_MAX_IOU) -> BagScores:
     images = json.loads(Path(path).read_text())["images"]
     pairs = [
-        image_scores(np.array(im["gt"]).reshape(-1, 5), np.array(im[model]).reshape(-1, 6), match_iou)
+        image_scores(np.array(im["gt"]).reshape(-1, 5), np.array(im[model]).reshape(-1, 6), clean_max_iou)
         for im in images
     ]
     threat, clean = np.array(pairs).T
@@ -257,12 +262,12 @@ def sensitivity(scores: BagScores, costs: Costs = DEFAULT_COSTS, predictions: Pa
     cases += [(f"missed threat EUR {v:,.0f}", {"fn": v}) for v in (10_000, 100_000, 10_000_000)]
     cases += [(f"base rate {100 * v:g}%", {"base_rate": v}) for v in (0.0001, 0.01)]
     cases += [(f"reviewer catches {100 * v:g}%", {"reviewer_catch": v}) for v in (0.8, 0.99, 1.0)]
-    # The box-to-object match rule changes the scores themselves, not the costs
-    cases += [(f"box match IoU {v:g}", {"match_iou": v}) for v in (0.45, 0.3)]
+    # The clean stand-in rule changes the scores themselves, not the costs
+    cases += [(f"clean stand-in IoU <= {v:g}", {"clean_max_iou": v}) for v in (0.0, 0.1, 0.3)]
     rows = []
     for label, change in cases:
-        if "match_iou" in change:
-            scores_now, k = load_bag_scores(predictions, match_iou=change["match_iou"]), costs
+        if "clean_max_iou" in change:
+            scores_now, k = load_bag_scores(predictions, clean_max_iou=change["clean_max_iou"]), costs
         else:
             scores_now, k = scores, replace(costs, **change)
         rows.append(_sensitivity_row(label, change, scores_now, k))
@@ -338,24 +343,24 @@ def plot_cost_curve(scores: BagScores, path: Path | None = None, costs: Costs = 
     ax.set_xscale("log")
     ax.set_yscale("log")
 
-    for label, t in mark.items():
+    for i, (label, t) in enumerate(mark.items()):
         cost = float(cost_per_1000(outcomes(scores, t), costs))
         ax.plot([t], [cost], "o", markersize=9, color=series, markeredgecolor=surface, markeredgewidth=2, zorder=3)
-        left = t > 0.1  # right-half labels sit above-left of their point, the rest below-right
+        above = i > 0  # the first mark is labelled below-left of its point, the others above-left
         ax.annotate(
             f"{label}\nt = {t:g}: EUR {cost:,.0f} per 1,000 bags",
-            (t, cost), xytext=(-12, 12) if left else (12, -10), textcoords="offset points",
-            ha="right" if left else "left", va="bottom" if left else "top", fontsize=9.5, color=ink,
+            (t, cost), xytext=(-12, 12) if above else (-12, -12), textcoords="offset points",
+            ha="right", va="bottom" if above else "top", fontsize=9.5, color=ink,
         )
 
     ax.set_xlim(THRESHOLDS[0] * 0.9, 1.0)
     ax.xaxis.set_major_locator(FixedLocator([0.001, 0.01, 0.1, 0.5, 1.0]))
     ax.xaxis.set_minor_locator(NullLocator())
     ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
-    ax.yaxis.set_major_locator(FixedLocator([1e3, 2e3, 5e3, 1e4, 2e4, 5e4, 1e5, 2e5, 5e5, 1e6]))
+    ax.yaxis.set_major_locator(FixedLocator([100, 200, 500, 1e3, 2e3, 5e3, 1e4, 2e4, 5e4, 1e5, 2e5, 5e5, 1e6]))
     ax.yaxis.set_minor_locator(NullLocator())
-    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"EUR {v / 1000:,.0f}K" if v < 1e6 else "EUR 1M"))
-    ax.set_ylim(min(curve.min() * 0.45, 1e6), 1.6e6)
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: "EUR 1M" if v >= 1e6 else f"EUR {v / 1000:,.0f}K" if v >= 1e3 else f"EUR {v:,.0f}"))
+    ax.set_ylim(min(curve.min() * 0.3, 1e6), 1.6e6)
     ax.set_xlabel("Confidence threshold (log scale). A bag is searched if its highest box is at or above it.",
                   color=ink2, fontsize=9.5, labelpad=8)
     ax.set_ylabel("Expected cost per 1,000 bags (log scale)", color=ink2, fontsize=9.5, labelpad=8)
@@ -367,12 +372,16 @@ def plot_cost_curve(scores: BagScores, path: Path | None = None, costs: Costs = 
         ax.spines[side].set_color(axis)
     ax.tick_params(colors=muted, labelsize=9, length=0, pad=6)
 
-    fig.text(0.012, 0.965, "Cost is lowest at the lowest threshold: one missed threat outweighs the searches",
-             ha="left", va="top", fontsize=13, fontweight="bold", color=ink)
+    best = best_threshold(scores, costs)
+    title = f"Cost is lowest at {best:g}"
+    if share_at_or_above(scores.threat, best) == 1:
+        title += ", the highest threshold that still flags every test threat bag"
+    fig.text(0.012, 0.965, title,
+             ha="left", va="top", fontsize=12.5, fontweight="bold", color=ink)
     fig.text(
         0.012, 0.915,
         f"Model alone, 156 test bags. Base rate {100 * costs.base_rate:g}%, EUR {costs.fn:,.0f} per missed threat, "
-        f"EUR {costs.fp:g} per search.\nClean bags are approximated by the boxes drawn on the background of the test images.",
+        f"EUR {costs.fp:g} per search.\nClean bags are approximated by the boxes drawn on empty content of the test images.",
         ha="left", va="top", fontsize=9.5, color=ink2, linespacing=1.4,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.84))
@@ -394,8 +403,8 @@ def run(predictions: Path = PREDICTIONS, out_dir: Path = ARTIFACTS_DIR) -> dict:
     result = {
         "method": {
             "unit": "one bag = one test image",
-            "threat_score": f"highest confidence among boxes with IoU >= {MATCH_IOU} with a ground-truth box (0 if none)",
-            "clean_score": f"proxy: highest confidence among boxes with IoU < {MATCH_IOU} with every ground-truth box",
+            "threat_score": "highest confidence among all boxes in the image, any class, no IoU matching (0 if none)",
+            "clean_score": f"stand-in: highest confidence among boxes with IoU <= {CLEAN_MAX_IOU} with every ground-truth box",
             "model_alone": "searched if score >= t, else pass",
             "design": "pass if score < t_low, review if t_low <= score < t_high, search if score >= t_high",
             "reviewer": "catches a reviewed threat with probability reviewer_catch, clears a reviewed clean bag",
@@ -408,11 +417,11 @@ def run(predictions: Path = PREDICTIONS, out_dir: Path = ARTIFACTS_DIR) -> dict:
             "review_share_of_time": REVIEW_SHARE_OF_TIME,
             "shift_hours": SHIFT_HOURS,
             "bags_per_day": BAGS_PER_DAY,
-            "match_iou": MATCH_IOU,
+            "clean_max_iou": CLEAN_MAX_IOU,
         },
         "test_bags": {
             "threat": len(scores.threat),
-            "threat_never_matched": int((scores.threat < THRESHOLDS[0]).sum()),
+            "threat_no_box": int((scores.threat < THRESHOLDS[0]).sum()),
             "clean_proxy": len(scores.clean),
         },
         "bag_scores": {"threat": scores.threat.round(4).tolist(), "clean": scores.clean.round(4).tolist()},
