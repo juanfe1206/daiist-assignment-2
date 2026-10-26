@@ -1,0 +1,121 @@
+{
+  "splits": {
+    "train": {
+      "images": 3303,
+      "images_without_objects": 1,
+      "objects": 6712
+    },
+    "valid": {
+      "images": 312,
+      "images_without_objects": 0,
+      "objects": 704
+    },
+    "test": {
+      "images": 156,
+      "images_without_objects": 0,
+      "objects": 358
+    }
+  },
+  "classes": {
+    "Gun": {
+      "train": {
+        "instances": 1508,
+        "images_with_class": 932,
+        "median_area_frac": 0.04371489575628698,
+        "share_below_1pct": 0.021883289124668436
+      },
+      "valid": {
+        "instances": 162,
+        "images_with_class": 109,
+        "median_area_frac": 0.033974551590236685,
+        "share_below_1pct": 0.07407407407407407
+      },
+      "test": {
+        "instances": 81,
+        "images_with_class": 49,
+        "median_area_frac": 0.033310026812130175,
+        "share_below_1pct": 0.04938271604938271
+      }
+    },
+    "Knife": {
+      "train": {
+        "instances": 1347,
+        "images_with_class": 904,
+        "median_area_frac": 0.12758875739644973,
+        "share_below_1pct": 0.0
+      },
+      "valid": {
+        "instances": 159,
+        "images_with_class": 95,
+        "median_area_frac": 0.08154585798816569,
+        "share_below_1pct": 0.0
+      },
+      "test": {
+        "instances": 88,
+        "images_with_class": 53,
+        "median_area_frac": 0.08191568047337278,
+        "share_below_1pct": 0.0
+      }
+    },
+    "Pliers": {
+      "train": {
+        "instances": 1351,
+        "images_with_class": 1103,
+        "median_area_frac": 0.04420534393491124,
+        "share_below_1pct": 0.030347890451517395
+      },
+      "valid": {
+        "instances": 124,
+        "images_with_class": 100,
+        "median_area_frac": 0.04005495330991124,
+        "share_below_1pct": 0.008064516129032258
+      },
+      "test": {
+        "instances": 67,
+        "images_with_class": 52,
+        "median_area_frac": 0.028057391826923076,
+        "share_below_1pct": 0.05970149253731343
+      }
+    },
+    "Scissors": {
+      "train": {
+        "instances": 1188,
+        "images_with_class": 1071,
+        "median_area_frac": 0.02288276627218935,
+        "share_below_1pct": 0.14562289562289563
+      },
+      "valid": {
+        "instances": 127,
+        "images_with_class": 108,
+        "median_area_frac": 0.01808518629807692,
+        "share_below_1pct": 0.2204724409448819
+      },
+      "test": {
+        "instances": 54,
+        "images_with_class": 48,
+        "median_area_frac": 0.01942290356878698,
+        "share_below_1pct": 0.18518518518518517
+      }
+    },
+    "Wrench": {
+      "train": {
+        "instances": 1318,
+        "images_with_class": 1019,
+        "median_area_frac": 0.07098858173076922,
+        "share_below_1pct": 0.026555386949924126
+      },
+      "valid": {
+        "instances": 132,
+        "images_with_class": 96,
+        "median_area_frac": 0.05689632257766272,
+        "share_below_1pct": 0.007575757575757576
+      },
+      "test": {
+        "instances": 68,
+        "images_with_class": 50,
+        "median_area_frac": 0.05408509384245562,
+        "share_below_1pct": 0.058823529411764705
+      }
+    }
+  }
+}
