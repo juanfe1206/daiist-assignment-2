@@ -19,10 +19,9 @@ Steps:
       ground truth, so thresholds can be swept later without re-running models)
    Ultralytics' own test-split validation of the finetuned model (with its
    confusion matrix and PR plots) is copied into artifacts/ultralytics_test/.
-
-TODO (student): cost-against-threshold sweep and the pass/review/fail
-thresholds. They need the costs and base rate from REPORT.md, so they are not
-written here. artifacts/test_predictions.json has everything they need.
+5. Cost sweep (costing.py): cost per 1,000 bags against the threshold, and the
+   pass/review/search thresholds, from artifacts/test_predictions.json and the
+   REPORT.md costs. -> artifacts/cost_sweep.json, artifacts/cost_curve.png
 
 Training runs on CPU without a GPU but is very slow there. See notes/colab.md.
 """
@@ -37,6 +36,8 @@ import torch
 import yaml
 from ultralytics import YOLO
 from ultralytics.utils.metrics import ap_per_class, box_iou
+
+import costing
 
 ROOT = Path(__file__).resolve().parent
 
@@ -434,8 +435,7 @@ def run(data_dir: Path, train_args: dict = TRAIN_ARGS) -> None:
     dataset_stats(data_dir, names)
     weights = finetune(data_yaml, train_args)
     evaluate_all(weights, data_dir, data_yaml, names)
-    # TODO (student): cost sweep over the threshold and the pass/review/fail
-    # thresholds, from artifacts/test_predictions.json and your REPORT.md costs.
+    costing.run(ARTIFACTS_DIR / "test_predictions.json", ARTIFACTS_DIR)
 
 
 if __name__ == "__main__":
