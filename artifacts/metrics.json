@@ -1,0 +1,336 @@
+{
+  "finetuned_yolo11n": {
+    "map50": 0.9025270357420399,
+    "map50_95": 0.6900528786093328,
+    "per_class": {
+      "Gun": {
+        "instances": 81,
+        "ap50": 0.9577848094189737,
+        "ap50_95": 0.811789942976709,
+        "precision@0.25": 0.8144329896907216,
+        "recall@0.25": 0.9753086419753086
+      },
+      "Knife": {
+        "instances": 88,
+        "ap50": 0.8795615369066455,
+        "ap50_95": 0.6331000131295415,
+        "precision@0.25": 0.7047619047619048,
+        "recall@0.25": 0.8409090909090909
+      },
+      "Pliers": {
+        "instances": 67,
+        "ap50": 0.905597250592987,
+        "ap50_95": 0.6841507980706589,
+        "precision@0.25": 0.8484848484848485,
+        "recall@0.25": 0.835820895522388
+      },
+      "Scissors": {
+        "instances": 54,
+        "ap50": 0.892884281761644,
+        "ap50_95": 0.6693619898014013,
+        "precision@0.25": 0.7121212121212122,
+        "recall@0.25": 0.8703703703703703
+      },
+      "Wrench": {
+        "instances": 68,
+        "ap50": 0.8768073000299484,
+        "ap50_95": 0.6518616490683538,
+        "precision@0.25": 0.7195121951219512,
+        "recall@0.25": 0.8676470588235294
+      }
+    },
+    "confusion_matrix": {
+      "labels": [
+        "Gun",
+        "Knife",
+        "Pliers",
+        "Scissors",
+        "Wrench",
+        "background"
+      ],
+      "rows": "true",
+      "columns": "predicted",
+      "conf": 0.25,
+      "iou": 0.45,
+      "counts": [
+        [
+          79,
+          0,
+          0,
+          0,
+          0,
+          2
+        ],
+        [
+          0,
+          74,
+          0,
+          0,
+          3,
+          11
+        ],
+        [
+          1,
+          0,
+          55,
+          0,
+          1,
+          10
+        ],
+        [
+          0,
+          0,
+          0,
+          47,
+          0,
+          7
+        ],
+        [
+          0,
+          0,
+          1,
+          0,
+          60,
+          7
+        ],
+        [
+          17,
+          31,
+          10,
+          19,
+          18,
+          0
+        ]
+      ]
+    },
+    "ultralytics_val_test": {
+      "map50": 0.9001043633311238,
+      "map50_95": 0.6843514594745573
+    }
+  },
+  "coco_yolo11n_zero_shot": {
+    "map50": 0.009817736573319868,
+    "map50_95": 0.007824877328973696,
+    "per_class": {
+      "Gun": {
+        "instances": 81,
+        "ap50": 0.0,
+        "ap50_95": 0.0,
+        "precision@0.25": null,
+        "recall@0.25": 0.0
+      },
+      "Knife": {
+        "instances": 88,
+        "ap50": 0.0033,
+        "ap50_95": 0.00207,
+        "precision@0.25": null,
+        "recall@0.25": 0.0
+      },
+      "Pliers": {
+        "instances": 67,
+        "ap50": 0.0,
+        "ap50_95": 0.0,
+        "precision@0.25": null,
+        "recall@0.25": 0.0
+      },
+      "Scissors": {
+        "instances": 54,
+        "ap50": 0.045788682866599345,
+        "ap50_95": 0.03705438664486849,
+        "precision@0.25": 0.6666666666666666,
+        "recall@0.25": 0.037037037037037035
+      },
+      "Wrench": {
+        "instances": 68,
+        "ap50": 0.0,
+        "ap50_95": 0.0,
+        "precision@0.25": null,
+        "recall@0.25": 0.0
+      }
+    },
+    "confusion_matrix": {
+      "labels": [
+        "Gun",
+        "Knife",
+        "Pliers",
+        "Scissors",
+        "Wrench",
+        "background"
+      ],
+      "rows": "true",
+      "columns": "predicted",
+      "conf": 0.25,
+      "iou": 0.45,
+      "counts": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          81
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          88
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          67
+        ],
+        [
+          0,
+          0,
+          0,
+          2,
+          0,
+          52
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          68
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          0,
+          0
+        ]
+      ]
+    }
+  },
+  "predict_nothing": {
+    "map50": 0.0,
+    "map50_95": 0.0,
+    "per_class": {
+      "Gun": {
+        "instances": 81,
+        "ap50": 0.0,
+        "ap50_95": 0.0,
+        "precision@0.25": null,
+        "recall@0.25": 0.0
+      },
+      "Knife": {
+        "instances": 88,
+        "ap50": 0.0,
+        "ap50_95": 0.0,
+        "precision@0.25": null,
+        "recall@0.25": 0.0
+      },
+      "Pliers": {
+        "instances": 67,
+        "ap50": 0.0,
+        "ap50_95": 0.0,
+        "precision@0.25": null,
+        "recall@0.25": 0.0
+      },
+      "Scissors": {
+        "instances": 54,
+        "ap50": 0.0,
+        "ap50_95": 0.0,
+        "precision@0.25": null,
+        "recall@0.25": 0.0
+      },
+      "Wrench": {
+        "instances": 68,
+        "ap50": 0.0,
+        "ap50_95": 0.0,
+        "precision@0.25": null,
+        "recall@0.25": 0.0
+      }
+    },
+    "confusion_matrix": {
+      "labels": [
+        "Gun",
+        "Knife",
+        "Pliers",
+        "Scissors",
+        "Wrench",
+        "background"
+      ],
+      "rows": "true",
+      "columns": "predicted",
+      "conf": 0.25,
+      "iou": 0.45,
+      "counts": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          81
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          88
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          67
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          54
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          68
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "dataset": "vladutc/x-ray-baggage/3",
+    "base_model": "yolo11n.pt",
+    "imgsz": 416,
+    "epochs": 50,
+    "batch": 16,
+    "patience": 15,
+    "seed": 0,
+    "deterministic": true,
+    "pred_conf": 0.001,
+    "cm_conf": 0.25,
+    "cm_iou": 0.45,
+    "device": "cuda",
+    "test_images": 156
+  }
+}
