@@ -64,16 +64,17 @@ BAGS_PER_DAY = 90_700  # Madrid-Barajas departing bags a day
 REVIEW_COST = REVIEW_SECONDS / 3600 * SCREENER_EUR_PER_HOUR / REVIEW_SHARE_OF_TIME
 SEARCH_MINUTES = 2  # screener time per manual search ("Cost matrix" section), whole shift counts
 
-# ASSUMPTION (not in REPORT.md): a screener catches 90% of the threats in the
-# images sent to review. The sensitivity table shows 80%, 95%, 99% and 100%.
-REVIEWER_CATCH = 0.9
+# ASSUMPTION (the student's assumption, stated in REPORT.md, no source): trained
+# screeners catch about 98% of threats they review. The sensitivity table shows
+# 90%, 95%, 99% and 100%.
+REVIEWER_CATCH = 0.98
 
 # ------------------------------------------------------------------ sweep set-up
 CLEAN_MAX_IOU = 0.1  # a box counts as "on empty content" if its IoU with every real object is <= this
 THRESHOLDS = np.round(np.arange(1, 991) / 1000, 3)  # 0.001 to 0.990
 T_HIGH = 0.7  # the chosen upper threshold (REPORT.md): at or above it, straight to a manual search
 T_LOW_OPTIONS = (0.05, 0.10, 0.15)  # lower thresholds shown next to the cost-optimal one
-REVIEWER_CATCH_OPTIONS = (0.9, 0.95, 0.99, 1.0)  # reviewer catch rates shown for the chosen pair
+REVIEWER_CATCH_OPTIONS = (0.9, 0.95, 0.98, 0.99, 1.0)  # reviewer catch rates shown for the chosen pair
 
 
 @dataclass(frozen=True)
@@ -279,7 +280,7 @@ def sensitivity(scores: BagScores, costs: Costs = DEFAULT_COSTS, predictions: Pa
     cases = [("baseline", {})]
     cases += [(f"missed threat EUR {v:,.0f}", {"fn": v}) for v in (10_000, 100_000, 10_000_000)]
     cases += [(f"base rate {100 * v:g}%", {"base_rate": v}) for v in (0.0001, 0.01)]
-    cases += [(f"reviewer catches {100 * v:g}%", {"reviewer_catch": v}) for v in (0.8, 0.95, 0.99, 1.0)]
+    cases += [(f"reviewer catches {100 * v:g}%", {"reviewer_catch": v}) for v in (0.9, 0.95, 0.99, 1.0)]
     # The clean stand-in rule changes the scores themselves, not the costs
     cases += [(f"clean stand-in IoU <= {v:g}", {"clean_max_iou": v}) for v in (0.0, 0.1, 0.3)]
     rows = []

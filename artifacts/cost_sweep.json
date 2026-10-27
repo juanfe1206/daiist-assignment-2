@@ -16,7 +16,7 @@
     "tn": 0.0,
     "base_rate": 0.001,
     "review": 0.25,
-    "reviewer_catch": 0.9,
+    "reviewer_catch": 0.98,
     "review_seconds": 30,
     "screener_eur_per_hour": 20.0,
     "review_share_of_time": 0.6666666666666666,
@@ -2337,7 +2337,7 @@
   "chosen_policy": {
     "t_low": 0.15,
     "t_high": 0.7,
-    "cost_per_1000": 14170.21057692307,
+    "cost_per_1000": 2888.1818589743607,
     "review_share": 0.1090064102564102,
     "search_share": 0.020070512820512865,
     "pass_share": 0.8709230769230769,
@@ -2412,7 +2412,7 @@
     {
       "t_low": 0.05,
       "t_high": 0.7,
-      "cost_per_1000": 14186.220192307685,
+      "cost_per_1000": 2904.191474358976,
       "review_share": 0.17304487179487174,
       "search_share": 0.020070512820512865,
       "pass_share": 0.8068846153846154,
@@ -2449,7 +2449,7 @@
     {
       "t_low": 0.1,
       "t_high": 0.7,
-      "cost_per_1000": 14175.013461538454,
+      "cost_per_1000": 2892.9847435897454,
       "review_share": 0.1282179487179487,
       "search_share": 0.020070512820512865,
       "pass_share": 0.8517115384615385,
@@ -2486,7 +2486,7 @@
     {
       "t_low": 0.15,
       "t_high": 0.7,
-      "cost_per_1000": 14170.21057692307,
+      "cost_per_1000": 2888.1818589743607,
       "review_share": 0.1090064102564102,
       "search_share": 0.020070512820512865,
       "pass_share": 0.8709230769230769,
@@ -2565,6 +2565,44 @@
       "t_low": 0.15,
       "t_high": 0.7,
       "cost_per_1000": 7118.942628205131,
+      "review_share": 0.1090064102564102,
+      "search_share": 0.020070512820512865,
+      "pass_share": 0.8709230769230769,
+      "per_1000_bags": {
+        "threat": {
+          "pass": 0.0,
+          "review": 0.14102564102564097,
+          "search": 0.858974358974359
+        },
+        "clean": {
+          "pass": 870.9230769230769,
+          "review": 108.86538461538456,
+          "search": 19.211538461538503
+        }
+      },
+      "test_counts": {
+        "threat": {
+          "pass": 0,
+          "review": 22,
+          "search": 134
+        },
+        "clean": {
+          "pass": 136,
+          "review": 17,
+          "search": 3
+        }
+      },
+      "reviews_per_day": 9886.881410256405,
+      "review_hours_per_day": 82.39067841880338,
+      "shifts_per_day": 15.448252203525634,
+      "searches_per_day": 1820.3955128205168,
+      "search_shifts_per_day": 7.58498130341882
+    },
+    {
+      "reviewer_catch": 0.98,
+      "t_low": 0.15,
+      "t_high": 0.7,
+      "cost_per_1000": 2888.1818589743607,
       "review_share": 0.1090064102564102,
       "search_share": 0.020070512820512865,
       "pass_share": 0.8709230769230769,
@@ -2827,7 +2865,7 @@
   "design_t_high_0.7": {
     "t_low": 0.15,
     "t_high": 0.7,
-    "cost_per_1000": 14170.21057692307,
+    "cost_per_1000": 2888.1818589743607,
     "review_share": 0.1090064102564102,
     "search_share": 0.020070512820512865,
     "pass_share": 0.8709230769230769,
@@ -2869,7 +2907,7 @@
     },
     {
       "option": "A person checks everything",
-      "cost_per_1000": 100251.79999999999,
+      "cost_per_1000": 20251.960000000017,
       "review_share": 1.0
     },
     {
@@ -2879,7 +2917,7 @@
     },
     {
       "option": "Chosen policy: model + review (0.15 / 0.7)",
-      "cost_per_1000": 14170.21057692307,
+      "cost_per_1000": 2888.1818589743607,
       "review_share": 0.1090064102564102,
       "search_share": 0.020070512820512865
     },
@@ -2912,7 +2950,7 @@
       "design_cost_per_1000": 258.15384615384613,
       "design_review_share": 0.0,
       "t_high_0.7_t_low": 0.15,
-      "t_high_0.7_cost_per_1000": 14170.21057692307,
+      "t_high_0.7_cost_per_1000": 2888.1818589743607,
       "t_high_0.7_review_share": 0.1090064102564102
     },
     {
@@ -2923,11 +2961,11 @@
       "model_alone_t": 0.15,
       "model_alone_cost_per_1000": 258.15384615384613,
       "design_t_low": 0.15,
-      "design_t_high": 0.497,
-      "design_cost_per_1000": 162.1836538461539,
-      "design_review_share": 0.10254487179487176,
+      "design_t_high": 0.734,
+      "design_cost_per_1000": 76.0275,
+      "design_review_share": 0.1218269230769231,
       "t_high_0.7_t_low": 0.15,
-      "t_high_0.7_cost_per_1000": 208.67211538461538,
+      "t_high_0.7_cost_per_1000": 95.87416666666677,
       "t_high_0.7_review_share": 0.1090064102564102
     },
     {
@@ -2938,11 +2976,11 @@
       "model_alone_t": 0.15,
       "model_alone_cost_per_1000": 258.15384615384613,
       "design_t_low": 0.15,
-      "design_t_high": 0.15,
-      "design_cost_per_1000": 258.15384615384613,
-      "design_review_share": 0.0,
+      "design_t_high": 0.331,
+      "design_cost_per_1000": 234.22442307692305,
+      "design_review_share": 0.05767307692307694,
       "t_high_0.7_t_low": 0.15,
-      "t_high_0.7_cost_per_1000": 1477.9028846153838,
+      "t_high_0.7_cost_per_1000": 349.72032051282076,
       "t_high_0.7_review_share": 0.1090064102564102
     },
     {
@@ -2957,7 +2995,7 @@
       "design_cost_per_1000": 258.15384615384613,
       "design_review_share": 0.0,
       "t_high_0.7_t_low": 0.15,
-      "t_high_0.7_cost_per_1000": 141093.28749999992,
+      "t_high_0.7_cost_per_1000": 28272.797243589757,
       "t_high_0.7_review_share": 0.1090064102564102
     },
     {
@@ -2968,11 +3006,11 @@
       "model_alone_t": 0.15,
       "model_alone_cost_per_1000": 256.58461538461535,
       "design_t_low": 0.15,
-      "design_t_high": 0.15,
-      "design_cost_per_1000": 256.58461538461535,
-      "design_review_share": 0.0,
+      "design_t_high": 0.331,
+      "design_cost_per_1000": 232.55705769230767,
+      "design_review_share": 0.05769038461538463,
       "t_high_0.7_t_low": 0.15,
-      "t_high_0.7_cost_per_1000": 1476.1556730769223,
+      "t_high_0.7_cost_per_1000": 347.95280128205155,
       "t_high_0.7_review_share": 0.10897756410256404
     },
     {
@@ -2987,13 +3025,13 @@
       "design_cost_per_1000": 273.84615384615387,
       "design_review_share": 0.0,
       "t_high_0.7_t_low": 0.15,
-      "t_high_0.7_cost_per_1000": 141110.75961538457,
+      "t_high_0.7_cost_per_1000": 28290.472435897453,
       "t_high_0.7_review_share": 0.10929487179487174
     },
     {
-      "case": "reviewer catches 80%",
+      "case": "reviewer catches 90%",
       "change": {
-        "reviewer_catch": 0.8
+        "reviewer_catch": 0.9
       },
       "model_alone_t": 0.15,
       "model_alone_cost_per_1000": 258.15384615384613,
@@ -3002,7 +3040,7 @@
       "design_cost_per_1000": 258.15384615384613,
       "design_review_share": 0.0,
       "t_high_0.7_t_low": 0.15,
-      "t_high_0.7_cost_per_1000": 28272.74647435896,
+      "t_high_0.7_cost_per_1000": 14170.21057692307,
       "t_high_0.7_review_share": 0.1090064102564102
     },
     {
@@ -3062,7 +3100,7 @@
       "design_cost_per_1000": 181.30769230769235,
       "design_review_share": 0.0,
       "t_high_0.7_t_low": 0.15,
-      "t_high_0.7_cost_per_1000": 14160.6048076923,
+      "t_high_0.7_cost_per_1000": 2878.5760897435916,
       "t_high_0.7_review_share": 0.0705833333333333
     },
     {
@@ -3077,7 +3115,7 @@
       "design_cost_per_1000": 258.15384615384613,
       "design_review_share": 0.0,
       "t_high_0.7_t_low": 0.15,
-      "t_high_0.7_cost_per_1000": 14170.21057692307,
+      "t_high_0.7_cost_per_1000": 2888.1818589743607,
       "t_high_0.7_review_share": 0.1090064102564102
     },
     {
@@ -3092,7 +3130,7 @@
       "design_cost_per_1000": 373.4230769230769,
       "design_review_share": 0.0,
       "t_high_0.7_t_low": 0.15,
-      "t_high_0.7_cost_per_1000": 14207.032692307685,
+      "t_high_0.7_cost_per_1000": 2925.003974358976,
       "t_high_0.7_review_share": 0.15383333333333335
     }
   ]
