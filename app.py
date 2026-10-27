@@ -33,7 +33,6 @@ METRICS = json.loads((ROOT / "artifacts" / "metrics.json").read_text())
 IMGSZ = int(METRICS.get("settings", {}).get("imgsz", 416))  # the size the model was evaluated at
 MODEL = YOLO(str(ROOT / "weights" / "best.pt"))
 VAL, SCORES = costing.load_splits()  # thresholds chosen on VAL, everything shown on SCORES (test)
-CURVE = costing.sweep(SCORES)  # model alone: one-threshold cost per 1,000 bags at every threshold
 K = costing.DEFAULT_COSTS
 T_LOW, T_HIGH = costing.chosen_pair(VAL, K)
 CHOSEN_COST = costing.evaluate(SCORES, T_LOW, T_HIGH, K)["cost_per_1000"]
@@ -57,9 +56,8 @@ def decide(score: float, t_low: float, t_high: float) -> str:
 def cost_curve(t_low: float, t_high: float, cost: float):
     """Policy cost as t_low varies with t_high at the slider value, so the curve passes through the KPI."""
     fig, ax = plt.subplots(figsize=(8, 3.6), dpi=110)
-    ax.step(costing.THRESHOLDS, CURVE, where="post", color="#a3a29b", lw=1.5, label="Model alone (one threshold)")
     ax.step(costing.THRESHOLDS, costing.policy_curve(SCORES, t_high, K), where="post", color="#2a78d6", lw=2,
-            label=f"Model + screener, t_high = {t_high:g}, t_low varies")
+            label=f"Cost as t_low varies (t_high = {t_high:g})")
     ax.axvline(t_high, color="#52514e", ls=":", lw=1)
     ax.plot([T_LOW], [CHOSEN_COST], "o", ms=9, color="#2a78d6", mec="white", mew=1.5,
             label=f"Chosen policy {T_LOW:g} / {T_HIGH:g}: €{CHOSEN_COST:,.0f}")
