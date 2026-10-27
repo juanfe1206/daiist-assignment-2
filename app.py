@@ -63,7 +63,9 @@ CHOSEN = f"{CHOSEN_T_LOW:g} / {CHOSEN_T_HIGH:g}"
 
 ASSUMPTIONS = (
     f"**Assumptions** (REPORT.md): base rate **1 threat bag in {1 / K.base_rate:,.0f}**. "
-    f"Missed threat **€{K.fn:,.0f}**, clean bag searched **€{K.fp:g}**, threat found **€{K.tp:g}**, "
+    f"Missed threat, by the most severe object in the bag: "
+    + ", ".join(f"{name.lower()} **€{K.miss_cost(name):,.0f}**" for name in costing.SEVERITY)
+    + f". Clean bag searched **€{K.fp:g}**, threat found **€{K.tp:g}**, "
     f"clean bag passed **€{K.tn:g}**, one human review **€{K.review:.2f}** "
     f"(30 s at €20/h with breaks), reviewer catches **{100 * K.reviewer_catch:g}%** of reviewed threats. "
     f"Staffing assumes {costing.BAGS_PER_DAY:,} bags a day (Madrid-Barajas) and 8-hour shifts.\n\n"

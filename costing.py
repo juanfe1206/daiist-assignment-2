@@ -10,6 +10,9 @@ Method (REPORT.md, "Cost matrix and operating point" and "What a person still
 has to check"):
 
 - The decision unit is one bag, i.e. one test image.
+- A missed threat costs what the threat is: each class has its own miss cost
+  (MISS_COST below), and a threat bag's miss cost is that of the most severe
+  object labelled in it (gun > knife > scissors > pliers / wrench).
 - Threat-bag score: the highest confidence among ALL boxes in the image (any
   class, wherever they are). The decision is whether to open the bag, so if the
   model fires anything on a bag that holds a threat, the bag is searched and the
@@ -28,9 +31,11 @@ has to check"):
   it is searched) and clears a reviewed clean bag (no false alarms by the
   reviewer, to keep it simple).
 - Expected cost per 1,000 bags =
-      1000 x [ p x (threat bag cost) + (1 - p) x (clean bag cost) ]
-  where p is the base rate and each bag cost is the share of bags in each
-  outcome times the euro cost of that outcome.
+      1000 x [ p x (mean threat bag cost) + (1 - p) x (clean bag cost) ]
+  where p is the base rate. The mean threat bag cost is the average over the
+  test threat bags of the cost of what happens to each one, with each bag's own
+  miss cost. The clean bag cost is the share of clean stand-ins in each outcome
+  times the euro cost of that outcome.
 """
 
 import json
@@ -47,14 +52,27 @@ MODEL = "finetuned_yolo11n"
 # ------------------------------------------------------------- costs (REPORT.md)
 # "Cost matrix and operating point", cost table
 C_FP = 2.0  # clean bag searched for nothing (EUR)
-C_FN = 1_000_000.0  # threat passes (EUR, a floor: the Munich 2018 breach)
 C_TP = 2.0  # threat found: the same manual search (EUR)
 C_TN = 0.0  # clean bag passes (EUR)
-# "Cost matrix and operating point", base rate: 1 bag in 1,000 holds a threat
-BASE_RATE = 0.001
+
+# Cost of a threat that gets through, by what it is (EUR). Round figures set by
+# how much harm the item can do on board: a gun is the worst case, a knife half
+# of it, scissors a tenth of a knife, pliers and a wrench lower again (blunt
+# tools that are hard to use as a weapon in a cabin).
+MISS_COST = {
+    "Gun": 1_000_000.0,
+    "Knife": 500_000.0,
+    "Scissors": 50_000.0,
+    "Pliers": 20_000.0,
+    "Wrench": 20_000.0,
+}
+
+# Base rate: most bags hold nothing prohibited.
+BAGS_PER_THREAT = 1_000  # 1 bag in 1,000 carries a prohibited item, the other 999 are clean
+BASE_RATE = 1 / BAGS_PER_THREAT
 
 # "What a person still has to check", review load
-REVIEW_SECONDS = 30  # a second look at one image (assumption in REPORT.md)
+REVIEW_SECONDS = 30  # a second look at one image
 SCREENER_EUR_PER_HOUR = 20.0  # loaded screener cost ("Cost matrix" section)
 REVIEW_SHARE_OF_TIME = 20 / 30  # 20 min of image review, then a 10 min break
 SHIFT_HOURS = 8  # -> 8 x 20/30 = 5.3 hours of image review per shift
@@ -64,9 +82,8 @@ BAGS_PER_DAY = 90_700  # Madrid-Barajas departing bags a day
 REVIEW_COST = REVIEW_SECONDS / 3600 * SCREENER_EUR_PER_HOUR / REVIEW_SHARE_OF_TIME
 SEARCH_MINUTES = 2  # screener time per manual search ("Cost matrix" section), whole shift counts
 
-# ASSUMPTION (the student's assumption, stated in REPORT.md, no source): trained
-# screeners catch about 98% of threats they review. The sensitivity table shows
-# 90%, 95%, 99% and 100%.
+# A screener who checks an image catches 98% of the threats in the bags they
+# review. The sensitivity table shows 90%, 95%, 99% and 100%.
 REVIEWER_CATCH = 0.98
 
 # ------------------------------------------------------------------ sweep set-up
@@ -82,23 +99,49 @@ class Costs:
     """Everything the expected cost depends on. Change one field with dataclasses.replace."""
 
     fp: float = C_FP
-    fn: float = C_FN
     tp: float = C_TP
     tn: float = C_TN
+    # Missed threat, by the most severe object in the bag
+    fn_gun: float = MISS_COST["Gun"]
+    fn_knife: float = MISS_COST["Knife"]
+    fn_scissors: float = MISS_COST["Scissors"]
+    fn_pliers: float = MISS_COST["Pliers"]
+    fn_wrench: float = MISS_COST["Wrench"]
     base_rate: float = BASE_RATE
     review: float = REVIEW_COST
     reviewer_catch: float = REVIEWER_CATCH
 
+    def miss_cost(self, name: str) -> float:
+        """Cost of missing a threat bag whose most severe object is class `name`."""
+        return getattr(self, f"fn_{name.lower()}")
+
 
 DEFAULT_COSTS = Costs()
+MISS_FIELDS = tuple(f"fn_{name.lower()}" for name in MISS_COST)
+# Most severe first. Fixed, so a sensitivity change to one cost never regroups the bags.
+SEVERITY = sorted(MISS_COST, key=MISS_COST.get, reverse=True)
+
+
+def scale_miss(costs: Costs, factor: float) -> Costs:
+    """Every class's miss cost multiplied by factor."""
+    return replace(costs, **{f: getattr(costs, f) * factor for f in MISS_FIELDS})
+
+
+def flat_miss(costs: Costs, value: float) -> Costs:
+    """The same miss cost for every class."""
+    return replace(costs, **{f: value for f in MISS_FIELDS})
 
 
 @dataclass(frozen=True)
 class BagScores:
-    """One score per test bag: threat = boxes on real objects, clean = boxes on background."""
+    """One score per test bag: threat = boxes on real objects, clean = boxes on background.
+
+    threat_class: the most severe ground-truth class in each threat bag (sets its miss cost).
+    """
 
     threat: np.ndarray
     clean: np.ndarray
+    threat_class: np.ndarray
 
 
 # ------------------------------------------------------------------- bag scores
@@ -125,14 +168,21 @@ def image_scores(gt: np.ndarray, pred: np.ndarray, clean_max_iou: float = CLEAN_
     return threat, clean
 
 
+def most_severe(gt: np.ndarray, names: list[str]) -> str:
+    """Name of the most severe ground-truth class in one image (gt: class,x1,y1,x2,y2)."""
+    present = {names[int(c)] for c in gt[:, 0]}
+    if not present:
+        raise ValueError("a test image has no ground-truth object, so it is not a threat bag")
+    return min(present, key=SEVERITY.index)
+
+
 def load_bag_scores(path: Path = PREDICTIONS, model: str = MODEL, clean_max_iou: float = CLEAN_MAX_IOU) -> BagScores:
-    images = json.loads(Path(path).read_text())["images"]
-    pairs = [
-        image_scores(np.array(im["gt"]).reshape(-1, 5), np.array(im[model]).reshape(-1, 6), clean_max_iou)
-        for im in images
-    ]
+    data = json.loads(Path(path).read_text())
+    names, images = data["names"], data["images"]
+    gts = [np.array(im["gt"]).reshape(-1, 5) for im in images]
+    pairs = [image_scores(gt, np.array(im[model]).reshape(-1, 6), clean_max_iou) for gt, im in zip(gts, images)]
     threat, clean = np.array(pairs).T
-    return BagScores(threat=threat, clean=clean)
+    return BagScores(threat=threat, clean=clean, threat_class=np.array([most_severe(gt, names) for gt in gts]))
 
 
 # --------------------------------------------------------------------- outcomes
@@ -142,26 +192,37 @@ def share_at_or_above(scores: np.ndarray, t) -> np.ndarray:
     return 1 - np.searchsorted(ordered, np.asarray(t, dtype=float), side="left") / len(ordered)
 
 
+def _split(s: np.ndarray, t_low, t_high) -> dict:
+    above_low, above_high = share_at_or_above(s, t_low), share_at_or_above(s, t_high)
+    return {"pass": 1 - above_low, "review": above_low - above_high, "search": above_high}
+
+
 def outcomes(scores: BagScores, t_low, t_high=None) -> dict:
     """Share of threat bags and of clean bags that pass, go to review, or go to search.
 
     t_high=None means the model alone (t_high = t_low, no review band).
-    Works on scalars or broadcastable arrays of thresholds.
+    Works on scalars or broadcastable arrays of thresholds (+/- inf sends every bag one way).
+    "threat_by_class" splits the threat bags by their most severe object: the same three
+    shares within each group, plus the group's weight (its share of all threat bags).
     """
     t_high = t_low if t_high is None else t_high
-    out = {}
-    for kind in ("threat", "clean"):
-        s = getattr(scores, kind)
-        above_low, above_high = share_at_or_above(s, t_low), share_at_or_above(s, t_high)
-        out[kind] = {"pass": 1 - above_low, "review": above_low - above_high, "search": above_high}
+    out = {kind: _split(getattr(scores, kind), t_low, t_high) for kind in ("threat", "clean")}
+    out["threat_by_class"] = {}
+    for name in SEVERITY:
+        group = scores.threat_class == name
+        if group.any():
+            out["threat_by_class"][name] = {"weight": float(group.mean()), **_split(scores.threat[group], t_low, t_high)}
     return out
 
 
 def cost_per_1000(o: dict, costs: Costs = DEFAULT_COSTS):
     """Expected EUR per 1,000 bags for outcome shares from outcomes()."""
-    t, c, k = o["threat"], o["clean"], costs
-    reviewed_threat = k.review + k.reviewer_catch * k.tp + (1 - k.reviewer_catch) * k.fn
-    threat_bag = t["pass"] * k.fn + t["review"] * reviewed_threat + t["search"] * k.tp
+    c, k = o["clean"], costs
+    threat_bag = 0.0  # mean over threat bags, each with its own miss cost
+    for name, g in o["threat_by_class"].items():
+        fn = k.miss_cost(name)
+        reviewed_threat = k.review + k.reviewer_catch * k.tp + (1 - k.reviewer_catch) * fn
+        threat_bag = threat_bag + g["weight"] * (g["pass"] * fn + g["review"] * reviewed_threat + g["search"] * k.tp)
     clean_bag = c["pass"] * k.tn + c["review"] * k.review + c["search"] * k.fp
     return 1000 * (k.base_rate * threat_bag + (1 - k.base_rate) * clean_bag)
 
@@ -212,6 +273,11 @@ def evaluate(scores: BagScores, t_low: float, t_high: float | None = None, costs
             kind: {k: int(round(float(v) * len(getattr(scores, kind)))) for k, v in o[kind].items()}
             for kind in ("threat", "clean")
         },
+        # Threat bags by their most severe object: what happens to them, in test-split bags
+        "test_counts_by_class": {
+            name: {k: int(round(float(g[k]) * g["weight"] * len(scores.threat))) for k in ("pass", "review", "search")}
+            for name, g in o["threat_by_class"].items()
+        },
         **staffing(share),
         **search_staffing(search),
     }
@@ -250,15 +316,20 @@ def chosen_pair(scores: BagScores, costs: Costs = DEFAULT_COSTS) -> tuple[float,
     return best_pair(scores, costs, t_high=T_HIGH)
 
 
-def break_even(scores: BagScores, field: str, low: float, high: float, costs: Costs = DEFAULT_COSTS) -> float:
-    """Value of one Costs field (fn or base_rate) below which the best model-alone threshold rises.
+def _changed(costs: Costs, field: str, value: float) -> Costs:
+    return scale_miss(costs, value) if field == "miss_scale" else replace(costs, **{field: value})
 
+
+def break_even(scores: BagScores, field: str, low: float, high: float, costs: Costs = DEFAULT_COSTS) -> float:
+    """Value below which the best model-alone threshold rises.
+
+    field: "miss_scale" (a factor on every class's miss cost) or a Costs field such as "base_rate".
     Bisection on a log scale between low and high (the best threshold only rises as either one falls).
     """
     base = best_threshold(scores, costs)
     for _ in range(60):
         mid = float(np.sqrt(low * high))
-        if best_threshold(scores, replace(costs, **{field: mid})) == base:
+        if best_threshold(scores, _changed(costs, field, mid)) == base:
             high = mid
         else:
             low = mid
@@ -278,8 +349,10 @@ def reviewer_break_even(scores: BagScores, t_low: float, t_high: float, costs: C
 def sensitivity(scores: BagScores, costs: Costs = DEFAULT_COSTS, predictions: Path = PREDICTIONS) -> list[dict]:
     """Best thresholds and costs when one assumption changes (one row per change)."""
     cases = [("baseline", {})]
-    cases += [(f"missed threat EUR {v:,.0f}", {"fn": v}) for v in (10_000, 100_000, 10_000_000)]
-    cases += [(f"base rate {100 * v:g}%", {"base_rate": v}) for v in (0.0001, 0.01)]
+    cases += [(f"missed gun EUR {v:,.0f}", {"fn_gun": v}) for v in (500_000, 2_000_000)]
+    cases += [(f"missed knife EUR {v:,.0f}", {"fn_knife": v}) for v in (250_000, 1_000_000)]
+    cases += [("every missed threat EUR 1,000,000", {"flat_miss": 1_000_000})]
+    cases += [(f"base rate 1 in {n:,}", {"base_rate": 1 / n}) for n in (500, 5_000)]
     cases += [(f"reviewer catches {100 * v:g}%", {"reviewer_catch": v}) for v in (0.9, 0.95, 0.99, 1.0)]
     # The clean stand-in rule changes the scores themselves, not the costs
     cases += [(f"clean stand-in IoU <= {v:g}", {"clean_max_iou": v}) for v in (0.0, 0.1, 0.3)]
@@ -287,6 +360,8 @@ def sensitivity(scores: BagScores, costs: Costs = DEFAULT_COSTS, predictions: Pa
     for label, change in cases:
         if "clean_max_iou" in change:
             scores_now, k = load_bag_scores(predictions, clean_max_iou=change["clean_max_iou"]), costs
+        elif "flat_miss" in change:
+            scores_now, k = scores, flat_miss(costs, change["flat_miss"])
         else:
             scores_now, k = scores, replace(costs, **change)
         rows.append(_sensitivity_row(label, change, scores_now, k))
@@ -314,31 +389,37 @@ def _sensitivity_row(label: str, change: dict, scores: BagScores, k: Costs) -> d
 
 
 def comparison(scores: BagScores, costs: Costs = DEFAULT_COSTS) -> list[dict]:
-    """Cost per 1,000 bags of the alternatives in REPORT.md's comparison table, plus searching every bag."""
-    k = costs
+    """Cost per 1,000 bags and daily staffing of the alternatives in REPORT.md's comparison table.
 
-    def everyone(outcome: str) -> dict:
-        return {kind: {o: float(o == outcome) for o in ("pass", "review", "search")} for kind in ("threat", "clean")}
-
+    "Do nothing", "a person checks every image" and "search every bag" send every bag one way
+    (thresholds of +/- inf). The staffing columns show what the last two would take each day.
+    """
+    k, inf = costs, np.inf
     t = best_threshold(scores, k)
     t_low, t_high = best_pair(scores, k)
     t_low_07, _ = chosen_pair(scores, k)
     return [
-        {"option": "Do nothing", "cost_per_1000": float(cost_per_1000(everyone("pass"), k)), "review_share": 0.0},
-        {"option": "A person checks everything", "cost_per_1000": float(cost_per_1000(everyone("review"), k)), "review_share": 1.0},
-        {"option": "Search every bag by hand", "cost_per_1000": float(cost_per_1000(everyone("search"), k)), "review_share": 0.0},
-        {"option": f"Chosen policy: model + review ({t_low_07:g} / {T_HIGH:g})", **_cost_and_share(evaluate(scores, t_low_07, T_HIGH, k))},
-        {"option": f"Alternative: model alone, one threshold (t = {t:g})", **_cost_and_share(evaluate(scores, t, None, k))},
-        {"option": f"Model + review, cost-optimal pair ({t_low:g} / {t_high:g})", **_cost_and_share(evaluate(scores, t_low, t_high, k))},
+        {"option": "Do nothing (every bag passes)", **_row(evaluate(scores, inf, inf, k))},
+        {"option": "A person checks every image", **_row(evaluate(scores, -inf, inf, k))},
+        {"option": "Search every bag by hand", **_row(evaluate(scores, -inf, -inf, k))},
+        {"option": f"Model alone, best single threshold (t = {t:g})", **_row(evaluate(scores, t, None, k))},
+        {"option": f"Chosen policy: model + review ({t_low_07:g} / {T_HIGH:g})", **_row(evaluate(scores, t_low_07, T_HIGH, k))},
+        {"option": f"Model + review, cost-optimal pair ({t_low:g} / {t_high:g})", **_row(evaluate(scores, t_low, t_high, k))},
     ]
 
 
-def _cost_and_share(result: dict) -> dict:
-    return {"cost_per_1000": result["cost_per_1000"], "review_share": result["review_share"],
-            "search_share": result["search_share"]}
+def _row(result: dict) -> dict:
+    keys = ("cost_per_1000", "review_share", "search_share", "reviews_per_day", "shifts_per_day",
+            "searches_per_day", "search_shifts_per_day")
+    return {key: result[key] for key in keys}
 
 
 # -------------------------------------------------------------------------- plot
+def _eur(v: float) -> str:
+    """EUR 1M, EUR 500K, EUR 2."""
+    return f"EUR {v / 1e6:g}M" if v >= 1e6 else f"EUR {v / 1e3:g}K" if v >= 1e3 else f"EUR {v:g}"
+
+
 def plot_cost_curve(
     scores: BagScores,
     path: Path | None = None,
@@ -375,7 +456,8 @@ def plot_cost_curve(
         for t in band:
             ax.axvline(t, color=ink2, linestyle="--", linewidth=1, zorder=1)
         review = evaluate(scores, lo, hi, costs)
-        ax.text((lo * hi) ** 0.5, 1500,
+        # Upper part of the band (x in data, y in axes units), clear of the curve
+        ax.text((lo * hi) ** 0.5, 0.78, transform=ax.get_xaxis_transform(), s=
                 f"Chosen policy:\nhuman review\nfrom {lo:g} to {hi:g}\n"
                 f"EUR {review['cost_per_1000']:,.0f} per\n1,000 bags (reviewer\ncatches {100 * costs.reviewer_catch:g}%)",
                 ha="center", va="center", fontsize=8.5, color=ink, linespacing=1.3)
@@ -417,13 +499,15 @@ def plot_cost_curve(
              ha="left", va="top", fontsize=12.5, fontweight="bold", color=ink)
     fig.text(
         0.012, 0.915,
-        f"Model alone, 156 test bags. Base rate {100 * costs.base_rate:g}%, EUR {costs.fn:,.0f} per missed threat, "
-        f"EUR {costs.fp:g} per search.\nClean bags are approximated by the boxes drawn on empty content of the test images."
+        f"Model alone, {len(scores.threat)} test bags. Base rate 1 in {1 / costs.base_rate:,.0f}. "
+        f"EUR {costs.fp:g} per search.\nMissed threat, by the most severe object in the bag: "
+        + ", ".join(f"{name.lower()} {_eur(costs.miss_cost(name))}" for name in SEVERITY)
+        + ".\nClean bags are approximated by the boxes drawn on empty content of the test images."
         + (f"\nShaded: the chosen policy's review band ({band[0]:g} to {band[1]:g}), where a screener checks the image."
            if band else ""),
         ha="left", va="top", fontsize=9.5, color=ink2, linespacing=1.4,
     )
-    fig.tight_layout(rect=(0, 0, 1, 0.84))
+    fig.tight_layout(rect=(0, 0, 1, 0.80))
     if path is not None:
         fig.savefig(path, facecolor=surface)
     plt.close(fig)
@@ -444,6 +528,8 @@ def run(predictions: Path = PREDICTIONS, out_dir: Path = ARTIFACTS_DIR) -> dict:
         "method": {
             "unit": "one bag = one test image",
             "threat_score": "highest confidence among all boxes in the image, any class, no IoU matching (0 if none)",
+            "miss_cost": "a threat bag's miss cost is that of its most severe ground-truth class (gun > knife > scissors > pliers / wrench)",
+            "threat_bag_cost": "mean over the test threat bags of each bag's outcome cost, with its own miss cost",
             "clean_score": f"stand-in: highest confidence among boxes with IoU <= {CLEAN_MAX_IOU} with every ground-truth box",
             "model_alone": "searched if score >= t, else pass",
             "design": "pass if score < t_low, review if t_low <= score < t_high, search if score >= t_high",
@@ -463,6 +549,7 @@ def run(predictions: Path = PREDICTIONS, out_dir: Path = ARTIFACTS_DIR) -> dict:
         },
         "test_bags": {
             "threat": len(scores.threat),
+            "threat_by_most_severe_class": {name: int((scores.threat_class == name).sum()) for name in SEVERITY},
             "threat_no_box": int((scores.threat < THRESHOLDS[0]).sum()),
             "clean_proxy": len(scores.clean),
         },
@@ -482,7 +569,8 @@ def run(predictions: Path = PREDICTIONS, out_dir: Path = ARTIFACTS_DIR) -> dict:
         "design_t_high_0.7": chosen,
         "comparison": comparison(scores, k),
         "break_even": {
-            "fn_eur": break_even(scores, "fn", 1.0, k.fn, k),
+            # Factor on every class's miss cost below which the best single threshold rises
+            "miss_cost_scale": break_even(scores, "miss_scale", 1e-6, 1.0, k),
             "base_rate": break_even(scores, "base_rate", 1e-9, k.base_rate, k),
             "reviewer_catch_for_t_high_0.7": reviewer_break_even(scores, t_low_07, T_HIGH, k),
         },
@@ -515,14 +603,19 @@ def _print_summary(r: dict) -> None:
     print("\nReviewer catch rate, chosen policy:")
     for e in r["reviewer_catch_sensitivity"]:
         print(f"  {100 * e['reviewer_catch']:7.3f}%  EUR {e['cost_per_1000']:>9,.0f}")
+    print("\nTest threat bags by most severe object:", r["test_bags"]["threat_by_most_severe_class"])
+    print("Chosen policy, threat bags by most severe object:", r["chosen_policy"]["test_counts_by_class"])
     print()
     for row in r["comparison"]:
-        print(f"{row['option']:<50} EUR {row['cost_per_1000']:>13,.2f}  review {100 * row['review_share']:.2f}%")
-    print(f"\nBreak-even: missed threat EUR {r['break_even']['fn_eur']:,.0f}, base rate {r['break_even']['base_rate']:.3g}, "
+        print(f"{row['option']:<50} EUR {row['cost_per_1000']:>11,.2f}  review {100 * row['review_share']:6.2f}%  "
+              f"search {100 * row['search_share']:6.2f}%  {row['reviews_per_day']:>7,.0f} reviews/day "
+              f"{row['shifts_per_day']:6.1f} shifts  {row['searches_per_day']:>7,.0f} searches/day "
+              f"{row['search_shifts_per_day']:6.1f} shifts")
+    print(f"\nBreak-even: miss costs x {r['break_even']['miss_cost_scale']:.3g}, base rate {r['break_even']['base_rate']:.3g}, "
           f"reviewer catch for 0.7 {r['break_even']['reviewer_catch_for_t_high_0.7']:.4f}")
     print("\nSensitivity:")
     for s in r["sensitivity"]:
-        print(f"  {s['case']:<28} alone t={s['model_alone_t']:<6g} EUR {s['model_alone_cost_per_1000']:>11,.0f} | "
+        print(f"  {s['case']:<36} alone t={s['model_alone_t']:<6g} EUR {s['model_alone_cost_per_1000']:>11,.0f} | "
               f"design {s['design_t_low']:g}/{s['design_t_high']:g} EUR {s['design_cost_per_1000']:>11,.0f} "
               f"review {100 * s['design_review_share']:.1f}% | 0.7: t_low {s['t_high_0.7_t_low']:g} "
               f"EUR {s['t_high_0.7_cost_per_1000']:>11,.0f} review {100 * s['t_high_0.7_review_share']:.1f}%")
