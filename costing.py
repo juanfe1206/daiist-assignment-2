@@ -507,7 +507,7 @@ def sensitivity(val: BagScores, test: BagScores, costs: Costs = DEFAULT_COSTS) -
 def comparison(val: BagScores, test: BagScores, costs: Costs = DEFAULT_COSTS) -> list[dict]:
     """Cost per 1,000 bags (val and test) and daily staffing (test shares) of the alternatives.
 
-    "Do nothing", "a person checks every image" and "search every bag" send every bag one way
+    "Do nothing", "a screener checks every image" and "search every bag" send every bag one way
     (thresholds of +/- inf).
     """
     k, inf = costs, np.inf
@@ -571,14 +571,17 @@ def plot_cost_curve(val: BagScores, test: BagScores, path: Path | None = None, c
     for split, scores, colour in (("val", val, orange), ("test", test, blue)):
         cost = p["chosen_policy"][split]["cost_per_1000"]
         ax.plot([lo], [cost], "o", ms=9, color=colour, mec=surface, mew=2, zorder=3)
-    c_test = p["chosen_policy"]["test"]["cost_per_1000"]
-    ax.annotate(f"Chosen t_low = {lo:g}: €{c_test:,.0f} per 1,000 bags on test", (lo, c_test),
-                xytext=(-8, -30), textcoords="offset points", ha="right", va="top", fontsize=9.5, color=ink,
-                arrowprops=dict(arrowstyle="-", color=ink2, lw=0.8))
+    # Labels sit in empty space next to the chosen points, so no label crosses a curve
+    c_test, c_val = (p["chosen_policy"][s]["cost_per_1000"] for s in ("test", "val"))
+    ax.annotate(f"Chosen t_low = {lo:g}: €{c_test:,.0f} on test", (lo, c_test),
+                xytext=(12, 0), textcoords="offset points", ha="left", va="center", fontsize=9.5, color=blue)
+    ax.annotate(f"€{c_val:,.0f} on validation", (lo, c_val),
+                xytext=(12, -16), textcoords="offset points", ha="left", va="center", fontsize=9.5, color=orange,
+                arrowprops=dict(arrowstyle="-", color=orange, lw=0.8, shrinkA=0, shrinkB=5))
     c_alone = p["model_alone"]["test"]["cost_per_1000"]
     ax.plot([t_alone], [c_alone], "s", ms=7, color=grey, mec=ink2, mew=1, zorder=4)
     ax.annotate(f"Model alone\nt = {t_alone:g}: €{c_alone:,.0f}", (t_alone, c_alone),
-                xytext=(10, -30), textcoords="offset points", ha="left", va="top", fontsize=9, color=ink2,
+                xytext=(-24, 44), textcoords="offset points", ha="right", va="bottom", fontsize=9, color=ink2,
                 arrowprops=dict(arrowstyle="-", color=ink2, lw=0.8))
     ax.axvline(hi, color=ink2, ls="--", lw=1)
     ax.text(hi, 0.97, f" t_high = {hi:g}", transform=ax.get_xaxis_transform(), fontsize=9, color=ink2, va="top")

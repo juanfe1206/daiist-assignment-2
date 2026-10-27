@@ -1,6 +1,6 @@
-# Training on Colab
+# Training on a GPU (Colab or Kaggle)
 
-My laptop has no NVIDIA GPU, so the real training runs on Colab.
+My laptop has no NVIDIA GPU, so training runs on a cloud GPU. These steps are for Colab; the submitted model was trained on Kaggle (see the end).
 
 1. Runtime > Change runtime type > T4 GPU.
 2. Add the Roboflow key as a Colab secret: click the key icon on the left, name it `ROBOFLOW_API_KEY` and turn notebook access on. The key never goes in a cell.

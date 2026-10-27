@@ -11,8 +11,8 @@ The model helps airport screeners decide, from each bag's X-ray, whether it
 passes or is searched by hand.
 
 - **Who acts on it**: the screener, guided by the model's score.
-- **Positive class**: a bag with a gun, knife, scissors, pliers or wrench, in
-  falling order of severity. A clean bag is the negative.
+- **Positive class**: a bag with a gun, knife, scissors, pliers or wrench. A
+  clean bag is the negative.
 - **False positive**: a clean bag is searched for nothing, costing minutes.
 - **False negative**: a threat reaches the aircraft. A gun or a knife can cost
   lives.
@@ -39,6 +39,8 @@ job: find the object and name it.
 | Instances | 1,751 | 1,594 | 1,542 | 1,369 | 1,518 |
 | Median box area (test) | 3.3% | 8.2% | 2.8% | 1.9% | 5.4% |
 
+## What the dataset's composition implies
+
 - **The classes are balanced**, so no class dominates training.
 - **There are no clean bags**, while almost every real bag is clean, so the
   false-alarm rate cannot be measured. The only signal left is boxes drawn on the background
@@ -52,7 +54,7 @@ job: find the object and name it.
 
 ## Finetuning and baselines
 
-**Settings**: `yolo11s` finetuned from COCO, `imgsz=512`, `epochs=70`, `batch=16`, `patience=20`, `seed=0`; Kaggle T4 GPU 
+**Settings**: `yolo11s` finetuned from COCO, `imgsz=512`, `epochs=70`, `batch=16`, `patience=20`, `seed=0`; Kaggle T4 GPU.
 A first `yolo11n` run at 416 px reached 0.903 mAP50.
 
 Test split:
@@ -64,11 +66,11 @@ Test split:
 | Predict nothing | 0.000 | 0.000 |
 
 COCO has no gun, pliers or wrench class, and zero-shot it found 2 of 54 scissors and no knives. The finetuned model beats both
-baselines on every class. Predicting nothing is the "Do nothing" cost row.
+baselines on every class.
 
 ## Per-class evaluation and failure modes
 
-Test split, at confidence 0.25 (confusion matrix in `artifacts/results_table.md`).
+Test split, at confidence 0.25; recall at IoU 0.5, counts at IoU 0.45 (confusion matrix in `artifacts/results_table.md`).
 
 | Class | AP50 | Recall | Not detected | False alarms |
 |---|---:|---:|---:|---:|
@@ -91,7 +93,7 @@ IMPORTANT: Recall here is per object at 0.25, while the policy below works per b
 
 - **Missed threat**, by the most severe object in the bag, set by the harm it
   can do on board: gun €1,000,000, knife €500,000 (half a gun), and scissors,
-  pliers and wrench €50,000 each (a tenth of a knife: small tools, harder to use as a weapon).
+  pliers and wrench €50,000 each (a tenth of a knife).
 - **Manual search**: €2. Two minutes of officer time is €0.67, plus the
   passenger's wait and the slower lane.
 - **Screener check**: €0.25: 30 seconds at a loaded €20 per hour, times 1.5
@@ -119,7 +121,15 @@ extra searches, and with a 0.1% base rate that points to a low threshold.
 
 *Cost per 1,000 bags against the lower threshold, validation and test.*
 
-## What the screener is for
+**When the answer changes:**
+
+- **Screener catch rate**: below 91.7% (validation) or 74.9% (test) the model
+  alone wins. A perfect screener widens the band to 0.90 (€379).
+- **Lower threshold**: moves to 0.19 if miss costs fall to 0.085 times or
+  threats are rarer than about 1 in 11,800.
+- **Search at officer time only (€0.67)**: upper threshold 0.19 (€401).
+
+## What a person still has to check
 
 The screener clears false alarms for €0.25 instead of a €2 search. I assume
 they catch 99% of threats, since they see the model's boxes, and never send a
@@ -127,37 +137,29 @@ clean bag to search. A reviewed threat is still missed 1% of the time, so above
 0.44 a search is cheaper. On test every gun and knife bag scores above 0.44.
 
 A bag below 0.04 passes, from 0.04 to 0.44 a screener checks it, and from 0.44
-it is searched. Chosen on validation (€338 per 1,000 bags), this pair costs €418
-on test. The optimum is flat: pairs within 5% span 0.02 to 0.04 and 0.15 to
+it is searched. Chosen on validation on a 0.01 grid (€338 per 1,000 bags), this
+pair costs €418 on test. The optimum is flat: pairs within 5% span 0.02 to 0.04 and 0.15 to
 0.58. My first idea, an upper threshold of 0.7, costs €452.
 
 A few small, cluttered threat bags set the low threshold: the model boxes them
 correctly but with very low confidence (test: pliers 0.031, scissors 0.043). At
 0.04 that pliers bag passes unchecked, as does a validation scissors bag at
-0.007. 0.04 is cheapest on validation. On test, that pliers bag costs
-€50,000; 0.03 would cost about €83. Thresholds come from validation, so test
-pays for that one bag.
+0.007. On the 0.01 grid, 0.04 is cheapest on validation. On test, that pliers
+bag adds about €340 of the €418 per 1,000 bags; 0.03 would cost about €83.
+Thresholds come from validation, so test pays for that one bag.
 
 **Staffing.** At an assumed 90,700 departing bags a day at Madrid-Barajas, the
 policy sends 7.7% to a screener and 2.7% to a search. 
 A screener views every image today (142 shifts), so staff
 suffices.
 
-| Option | Cost per 1,000 bags | Staff shifts a day (screener + search) |
+| Option | Cost per 1,000 bags (test) | Staff shifts a day (screener + search) |
 |---|---:|---:|
 | Do nothing | €149,500 | 0 |
 | Manual search of every bag | €2,000 | 378 |
 | A screener checks every image | €1,747 | 142 |
 | Model alone (search from 0.04) | €547 | 39 |
 | **Model + screener (my policy)** | **€418** | **21** |
-
-## When the answer changes
-
-- **Screener catch rate**: below 91.7% (validation) or 74.9% (test) the model
-  alone wins. A perfect screener widens the band to 0.90 (€379).
-- **Lower threshold**: moves to 0.19 if miss costs fall to 0.085 times or
-  threats are rarer than about 1 in 11,800.
-- **Search at officer time only (€0.67)**: upper threshold 0.19 (€401).
 
 ## Limitations & next steps
 
