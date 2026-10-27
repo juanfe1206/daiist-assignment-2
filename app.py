@@ -56,16 +56,20 @@ def decide(score: float, t_low: float, t_high: float) -> str:
 def cost_curve(t_low: float, t_high: float, cost: float):
     """Policy cost as t_low varies with t_high at the slider value, so the curve passes through the KPI."""
     fig, ax = plt.subplots(figsize=(8, 3.6), dpi=110)
-    curve = costing.policy_curve(SCORES, t_high, K)
-    ax.step(costing.THRESHOLDS, curve, where="post", color="#2a78d6", lw=2,
-            label=f"Cost as t_low varies (t_high = {t_high:g})")
+    grid = costing.GRID  # the 0.01 grid the thresholds are chosen on
+    curve = costing.policy_curve(SCORES, t_high, K, grid)
+    val_curve = costing.policy_curve(VAL, t_high, K, grid)
+    ax.plot(grid, val_curve, color="#a3a29b", lw=1.5, ls="--", marker=".", ms=3,
+            label="Validation bags (thresholds chosen here)")
+    ax.plot(grid, curve, color="#2a78d6", lw=2, marker=".", ms=3, label="Test bags (cost reported)")
     ax.axvline(t_high, color="#52514e", ls=":", lw=1)
     ax.plot([T_LOW], [CHOSEN_COST], "o", ms=9, color="#2a78d6", mec="white", mew=1.5,
             label=f"Chosen policy {T_LOW:g} / {T_HIGH:g}: €{CHOSEN_COST:,.0f}")
     ax.plot([t_low], [cost], "D", ms=7, color="#d6532a", label=f"Sliders {t_low:g} / {t_high:g}: €{cost:,.0f}")
-    ax.set(xlim=(0, 1), xlabel="t_low", ylabel="Cost per 1,000 bags")
+    ax.set(xlim=(0, min(1.0, max(t_high, 0.05) * 1.1)), xlabel=f"t_low (t_high fixed at {t_high:g})",
+           ylabel="Cost per 1,000 bags")
     costing.eur_axis(ax)
-    lo, hi = np.nanmin(curve), np.nanmax(curve)
+    lo, hi = np.nanmin([curve, val_curve]), np.nanmax([curve, val_curve])
     ax.set_ylim(lo / 1.5, hi * 3)  # headroom so the top of the curve and the legend never get clipped
     ax.grid(alpha=0.3)
     ax.spines[["top", "right"]].set_visible(False)
