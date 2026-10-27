@@ -136,10 +136,6 @@ they catch 99% of threats, since they see the model's boxes, and never send a
 clean bag to search. A reviewed threat is still missed 1% of the time, so above
 0.44 a search is cheaper. On test every gun and knife bag scores above 0.44.
 
-A bag below 0.04 passes, from 0.04 to 0.44 a screener checks it, and from 0.44
-it is searched. Chosen on validation on a 0.01 grid (€338 per 1,000 bags), this
-pair costs €418 on test. The optimum is flat: pairs within 5% span 0.02 to 0.04 and 0.15 to
-0.58. My first idea, an upper threshold of 0.7, costs €452.
 
 A few small, cluttered threat bags set the low threshold: the model boxes them
 correctly but with very low confidence (test: pliers 0.031, scissors 0.043). At
