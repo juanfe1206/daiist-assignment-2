@@ -17,11 +17,13 @@ Steps:
    -> artifacts/metrics.json, artifacts/results_table.md,
       artifacts/test_predictions.json (every box with conf >= 0.001, plus the
       ground truth, so thresholds can be swept later without re-running models)
+   The same boxes on the validation split -> artifacts/val_predictions.json
+   (costing.py picks the thresholds on it and reports their cost on the test split).
    Ultralytics' own test-split validation of the finetuned model (with its
    confusion matrix and PR plots) is copied into artifacts/ultralytics_test/.
-5. Cost sweep (costing.py): cost per 1,000 bags against the threshold, and the
-   pass/review/search thresholds, from artifacts/test_predictions.json and the
-   REPORT.md costs. -> artifacts/cost_sweep.json, artifacts/cost_curve.png
+5. Cost sweep (costing.py): thresholds chosen on artifacts/val_predictions.json,
+   cost per 1,000 bags reported on artifacts/test_predictions.json.
+   -> artifacts/cost_sweep.json, artifacts/cost_curve.png
 
 Training runs on CPU without a GPU but is very slow there. See notes/colab.md.
 """
@@ -62,8 +64,9 @@ IMGSZ = 512
 TRAIN_ARGS = dict(
     epochs=120, batch=16, patience=30, seed=0, deterministic=True, cos_lr=True, close_mosaic=15
 )
-# Key for the finetuned model in metrics.json / test_predictions.json. Taken from
-# costing.py so the cost sweep at the end always finds it.
+# Key for the finetuned model in metrics.json / *_predictions.json. Taken from
+# costing.py so the cost sweep at the end always finds it (older runs wrote
+# "finetuned_yolo11n"; costing.model_key accepts either).
 FINETUNED = costing.MODEL
 
 # Evaluation settings
@@ -230,12 +233,12 @@ def finetune(data_yaml: Path, train_args: dict = TRAIN_ARGS) -> Path:
 
 
 # --------------------------------------------------------------------- evaluation
-def predict(model: YOLO, images: list[Path], class_map: dict[int, int]) -> list[np.ndarray]:
+def predict(model: YOLO, images: list[Path], class_map: dict[int, int], imgsz: int = IMGSZ) -> list[np.ndarray]:
     """Per image (n, 6): class, conf, x1, y1, x2, y2 in pixels, mapped to dataset classes."""
     out = []
     for result in model.predict(
         source=[str(p) for p in images],
-        imgsz=IMGSZ,
+        imgsz=imgsz,
         conf=PRED_CONF,
         classes=sorted(class_map),
         stream=True,
@@ -390,7 +393,14 @@ def evaluate_all(weights: Path, data_dir: Path, data_yaml: Path, names: list[str
 
     ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
     (ARTIFACTS_DIR / "metrics.json").write_text(json.dumps(metrics, indent=2))
-    (ARTIFACTS_DIR / "test_predictions.json").write_text(json.dumps({
+    write_predictions(ARTIFACTS_DIR / "test_predictions.json", names, images, gts, preds)
+    write_results_table(metrics, names)
+    return metrics
+
+
+def write_predictions(path: Path, names: list[str], images: list[Path], gts: list[np.ndarray], preds: dict) -> None:
+    """Every box (conf >= PRED_CONF) and the ground truth per image, one key per model."""
+    path.write_text(json.dumps({
         "names": names,
         "columns": {"gt": "class,x1,y1,x2,y2 (px)", "pred": "class,conf,x1,y1,x2,y2 (px)"},
         "images": [
@@ -402,8 +412,22 @@ def evaluate_all(weights: Path, data_dir: Path, data_yaml: Path, names: list[str
             for i, (img, g) in enumerate(zip(images, gts))
         ],
     }))
-    write_results_table(metrics, names)
-    return metrics
+
+
+def predict_split(weights: Path, data_dir: Path, names: list[str], split: str = "valid",
+                  imgsz: int = IMGSZ, out: Path | None = None) -> Path:
+    """The finetuned model's boxes on one split, in the test_predictions.json format.
+
+    Default: the validation split -> artifacts/val_predictions.json, where costing.py picks
+    its thresholds. Standalone: uv run python predict_split.py
+    """
+    images = split_images(data_dir, split)
+    preds = {FINETUNED: predict(YOLO(str(weights)), images, {k: k for k in range(len(names))}, imgsz)}
+    out = out or ARTIFACTS_DIR / ("val_predictions.json" if split == "valid" else f"{split}_predictions.json")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    write_predictions(out, names, images, ground_truth(images), preds)
+    print(f"Wrote {out} ({len(images)} images, imgsz {imgsz})")
+    return out
 
 
 def write_results_table(metrics: dict, names: list[str]) -> None:
@@ -444,6 +468,7 @@ def run(data_dir: Path, train_args: dict = TRAIN_ARGS) -> None:
     dataset_stats(data_dir, names)
     weights = finetune(data_yaml, train_args)
     evaluate_all(weights, data_dir, data_yaml, names)
+    predict_split(weights, data_dir, names, "valid")
     costing.run(ARTIFACTS_DIR / "test_predictions.json", ARTIFACTS_DIR)
 
 

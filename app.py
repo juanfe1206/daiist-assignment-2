@@ -3,9 +3,11 @@ Assignment 2: Gradio dashboard for X-ray baggage screening.
 
     uv run python main.py app      # then open http://127.0.0.1:7860
 
-Nothing is trained here. It loads weights/best.pt, the test-split bag scores
-(costing.py, from artifacts/test_predictions.json) and artifacts/metrics.json.
-The chosen policy is costing.chosen_pair: the cost-optimal (t_low, t_high).
+Nothing is trained here. It loads weights/best.pt, the validation and test bag
+scores (costing.py, from artifacts/val_predictions.json and test_predictions.json)
+and artifacts/metrics.json. The chosen policy is costing.chosen_pair: the
+cost-optimal (t_low, t_high) on the validation split. Every number shown is on
+the test split.
 """
 
 import json
@@ -25,20 +27,24 @@ import costing
 
 ROOT = Path(__file__).resolve().parent
 PORT = int(os.environ.get("APP_PORT", "7860"))  # check.py reads the same variable
-IMGSZ = 416  # as in train.py
 DECISIONS = {"pass": "Pass", "review": "Screener", "search": "Manual search"}
 
-MODEL = YOLO(str(ROOT / "weights" / "best.pt"))
-SCORES = costing.load_bag_scores()
-CURVE = costing.sweep(SCORES)  # one-threshold cost per 1,000 bags at every threshold
 METRICS = json.loads((ROOT / "artifacts" / "metrics.json").read_text())
+IMGSZ = int(METRICS.get("settings", {}).get("imgsz", 416))  # the size the model was evaluated at
+MODEL = YOLO(str(ROOT / "weights" / "best.pt"))
+VAL, SCORES = costing.load_splits()  # thresholds chosen on VAL, everything shown on SCORES (test)
+CURVE = costing.sweep(SCORES)  # model alone: one-threshold cost per 1,000 bags at every threshold
 K = costing.DEFAULT_COSTS
-T_LOW, T_HIGH = costing.chosen_pair(SCORES, K)
+T_LOW, T_HIGH = costing.chosen_pair(VAL, K)
+CHOSEN_COST = costing.evaluate(SCORES, T_LOW, T_HIGH, K)["cost_per_1000"]
 
 ASSUMPTIONS = (
     "Missed threat: " + ", ".join(f"{c.lower()} €{K.miss_cost(c):,.0f}" for c in costing.SEVERITY)
+    + ". Threat bags by most severe object (assumed mix): "
+    + ", ".join(f"{c.lower()} {100 * v:g}%" for c, v in costing.THREAT_MIX.items())
     + f". Manual search €{K.fp:g}, screener check €{K.review:.2f}. "
-    f"Base rate 1 threat bag in {1 / K.base_rate:,.0f}. Screener catches {100 * K.reviewer_catch:g}% of threats."
+    f"Base rate 1 threat bag in {1 / K.base_rate:,.0f}. Screener catches {100 * K.reviewer_catch:g}% of threats "
+    "and never sends a clean bag to search. Thresholds chosen on the validation split; numbers here are on the test split."
 )
 
 
@@ -48,15 +54,18 @@ def decide(score: float, t_low: float, t_high: float) -> str:
     return "review" if score < t_high else "search"
 
 
-def cost_curve(t_low: float, t_high: float):
+def cost_curve(t_low: float, t_high: float, cost: float):
+    """Policy cost as t_low varies with t_high at the slider value, so the curve passes through the KPI."""
     fig, ax = plt.subplots(figsize=(8, 3.6), dpi=110)
-    ax.step(costing.THRESHOLDS, CURVE, where="post", color="#2a78d6", lw=2, label="One threshold")
-    ax.axvspan(T_LOW, T_HIGH, color="#2a78d6", alpha=0.1, lw=0, label=f"Chosen screener band {T_LOW:g}–{T_HIGH:g}")
-    for t in (t_low, t_high):
-        ax.axvline(t, color="#d6532a", ls="--", lw=1.2)
-    ax.plot([], [], color="#d6532a", ls="--", label="Sliders")
-    ax.set(xscale="log", yscale="log", xlim=(0.001, 1),
-           xlabel="Threshold", ylabel="Cost per 1,000 bags (€)")
+    ax.step(costing.THRESHOLDS, CURVE, where="post", color="#a3a29b", lw=1.5, label="Model alone (one threshold)")
+    ax.step(costing.THRESHOLDS, costing.policy_curve(SCORES, t_high, K), where="post", color="#2a78d6", lw=2,
+            label=f"Model + screener, t_high = {t_high:g}, t_low varies")
+    ax.axvline(t_high, color="#52514e", ls=":", lw=1)
+    ax.plot([T_LOW], [CHOSEN_COST], "o", ms=9, color="#2a78d6", mec="white", mew=1.5,
+            label=f"Chosen policy {T_LOW:g} / {T_HIGH:g}: €{CHOSEN_COST:,.0f}")
+    ax.plot([t_low], [cost], "D", ms=7, color="#d6532a", label=f"Sliders {t_low:g} / {t_high:g}: €{cost:,.0f}")
+    ax.set(xscale="log", xlim=(0.001, 1), xlabel="t_low (log scale)", ylabel="Cost per 1,000 bags")
+    costing.eur_axis(ax)
     ax.grid(alpha=0.3)
     ax.spines[["top", "right"]].set_visible(False)
     ax.legend(frameon=False, fontsize=9, loc="upper left")
@@ -68,14 +77,14 @@ def cost_curve(t_low: float, t_high: float):
 def update(t_low: float, t_high: float):
     """Cost, shares, confusion matrix and curve for one pair of thresholds."""
     r = costing.evaluate(SCORES, t_low, t_high, K)
-    per = r["per_1000_bags"]
+    n = r["counts"]
     matrix = pd.DataFrame(
-        [[label] + [f"{per[kind][o]:,.{d}f}" for o in DECISIONS] for label, kind, d in
-         [("Threat bag", "threat", 3), ("Clean bag", "clean", 1)]],
-        columns=["Per 1,000 bags", *DECISIONS.values()],
+        [[f"{label} ({sum(n[kind].values())})"] + [n[kind][o] for o in DECISIONS]
+         for label, kind in [("Threat bags", "threat"), ("Clean stand-ins", "clean")]],
+        columns=["Test bags", *DECISIONS.values()],
     )
     return (f"€{r['cost_per_1000']:,.0f}", f"{100 * r['review_share']:.1f}%", f"{100 * r['search_share']:.1f}%",
-            matrix, cost_curve(t_low, t_high))
+            matrix, cost_curve(t_low, t_high, r["cost_per_1000"]))
 
 
 def screen(image, t_low: float, t_high: float):
@@ -93,10 +102,11 @@ def screen(image, t_low: float, t_high: float):
     return shown.plot()[..., ::-1], verdict, boxes
 
 
+FINETUNED = METRICS[costing.model_key(METRICS)]
+
+
 def per_class() -> pd.DataFrame:
-    m = METRICS["finetuned_yolo11n"]
-    rows = [(c, v["ap50"], v["precision@0.25"], v["recall@0.25"]) for c, v in m["per_class"].items()]
-    rows.append(("All (mAP50)", m["map50"], None, None))
+    rows = [(c, v["ap50"], v["precision@0.25"], v["recall@0.25"]) for c, v in FINETUNED["per_class"].items()]
     return pd.DataFrame(rows, columns=["Class", "AP50", "Precision", "Recall"]).round(3)
 
 
@@ -124,7 +134,8 @@ with gr.Blocks(title="X-ray baggage screening", analytics_enabled=False) as demo
                 cost = gr.Textbox(label="Expected cost per 1,000 bags", interactive=False)
                 review = gr.Textbox(label="Sent to screener", interactive=False)
                 search = gr.Textbox(label="Sent to manual search", interactive=False)
-            matrix = gr.Dataframe(label="Confusion matrix (rows: truth, columns: decision)", interactive=False)
+            matrix = gr.Dataframe(label="Confusion matrix, test-split bags (rows: truth, columns: decision)",
+                                  interactive=False)
             curve = gr.Plot(show_label=False)
         with gr.Tab("Upload a bag"):
             with gr.Row():
@@ -135,7 +146,8 @@ with gr.Blocks(title="X-ray baggage screening", analytics_enabled=False) as demo
         with gr.Tab("Per-class results"):
             gr.Dataframe(per_class(), label="Finetuned model, test split (precision and recall at confidence 0.25)",
                          interactive=False)
-            gr.Markdown(f"Baselines, mAP50: COCO zero-shot {METRICS['coco_yolo11n_zero_shot']['map50']:.3f}, "
+            gr.Markdown(f"mAP50: finetuned {FINETUNED['map50']:.3f}, "
+                        f"COCO zero-shot {METRICS['coco_yolo11n_zero_shot']['map50']:.3f}, "
                         f"predict nothing {METRICS['predict_nothing']['map50']:.3f}.")
 
     views, bag = [cost, review, search, matrix, curve], [image_out, verdict, boxes]
