@@ -110,8 +110,8 @@ BAGS_PER_DAY = 90_700  # Madrid-Barajas departing bags a day
 # Paid cost of one review, breaks included: 30 s x EUR 20/h / (20/30) = EUR 0.25.
 REVIEW_COST = REVIEW_SECONDS / 3600 * SCREENER_EUR_PER_HOUR / REVIEW_SHARE_OF_TIME
 
-# A screener who checks an image catches 98% of the threats in the bags they review.
-REVIEWER_CATCH = 0.98
+# A screener who checks an image catches 99% of the threats in the bags they review.
+REVIEWER_CATCH = 0.99
 # ASSUMPTION: a screener never sends a clean bag on to a manual search (no false alarms).
 SCREENER_SENDS_CLEAN = 0.0
 
