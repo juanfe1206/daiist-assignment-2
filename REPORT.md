@@ -52,7 +52,7 @@ job: find the object and name it.
 
 ## Finetuning and baselines
 
-**Settings**: `yolo11s` finetuned from COCO, `imgsz=512`, `epochs=70`, `batch=16`, `patience=20`, `seed=0`; Kaggle T4 GPU (Colab's free quota ran out).
+**Settings**: `yolo11s` finetuned from COCO, `imgsz=512`, `epochs=70`, `batch=16`, `patience=20`, `seed=0`; Kaggle T4 GPU 
 A first `yolo11n` run at 416 px reached 0.903 mAP50.
 
 Test split:
@@ -122,42 +122,42 @@ extra searches, and with a 0.1% base rate that points to a low threshold.
 ## What the screener is for
 
 The screener clears false alarms for €0.25 instead of a €2 search. I assume
-they catch 98% of threats, since they see the model's boxes, and never send a
-clean bag to search. A reviewed threat is still missed 2% of the time, so above
-0.26 a search is cheaper. On test every gun and knife bag scores above 0.26.
+they catch 99% of threats, since they see the model's boxes, and never send a
+clean bag to search. A reviewed threat is still missed 1% of the time, so above
+0.44 a search is cheaper. On test every gun and knife bag scores above 0.44.
 
-A bag below 0.04 passes, from 0.04 to 0.26 a screener checks it, and from 0.26
-it is searched. Chosen on validation (€349 per 1,000 bags), this pair costs €468
+A bag below 0.04 passes, from 0.04 to 0.44 a screener checks it, and from 0.44
+it is searched. Chosen on validation (€338 per 1,000 bags), this pair costs €418
 on test. The optimum is flat: pairs within 5% span 0.02 to 0.04 and 0.15 to
-0.54. My first idea, an upper threshold of 0.7, costs €525.
+0.58. My first idea, an upper threshold of 0.7, costs €452.
 
 A few small, cluttered threat bags set the low threshold: the model boxes them
 correctly but with very low confidence (test: pliers 0.031, scissors 0.043). At
 0.04 that pliers bag passes unchecked, as does a validation scissors bag at
 0.007. 0.04 is cheapest on validation. On test, that pliers bag costs
-€50,000; 0.03 would cost about €140. Thresholds come from validation, so test
+€50,000; 0.03 would cost about €83. Thresholds come from validation, so test
 pays for that one bag.
 
 **Staffing.** At an assumed 90,700 departing bags a day at Madrid-Barajas, the
-policy sends 5.1% to a screener (7.3 eight-hour shifts) and 5.2% to a search
-(19.7 shifts). A screener views every image today (142 shifts), so staff
+policy sends 7.7% to a screener (10.9 eight-hour shifts) and 2.7% to a search
+(10.1 shifts). A screener views every image today (142 shifts), so staff
 suffices.
 
 | Option | Cost per 1,000 bags | Staff shifts a day (screener + search) |
 |---|---:|---:|
 | Do nothing | €149,500 | 0 |
-| A screener checks every image | €3,242 | 142 |
 | Manual search of every bag | €2,000 | 378 |
+| A screener checks every image | €1,747 | 142 |
 | Model alone (search from 0.04) | €547 | 39 |
-| **Model + screener (my policy)** | **€468** | **27** |
+| **Model + screener (my policy)** | **€418** | **21** |
 
 ## When the answer changes
 
-- **Screener catch rate**: below 78.5% (validation) or 83.3% (test) the model
+- **Screener catch rate**: below 91.7% (validation) or 74.9% (test) the model
   alone wins. A perfect screener widens the band to 0.90 (€379).
 - **Lower threshold**: moves to 0.19 if miss costs fall to 0.085 times or
-  threats are rarer than about 1 in 11,700.
-- **Search at officer time only (€0.67)**: upper threshold 0.19 (€406).
+  threats are rarer than about 1 in 11,800.
+- **Search at officer time only (€0.67)**: upper threshold 0.19 (€401).
 
 ## Limitations & next steps
 
