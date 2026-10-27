@@ -24,7 +24,7 @@ has to check"):
   approximation: the empty part of a threat bag is smaller and more cluttered
   than a real clean bag.
 - Model alone: a bag is searched if its score >= t, otherwise it passes.
-- Model + person (the chosen policy, t_high = 0.7, t_low cost-optimal):
+- Model + person (the chosen policy: the cost-optimal pair t_low / t_high):
   score < t_low passes, t_low <= score < t_high goes to a screener for a second
   look, score >= t_high goes straight to a manual search.
   The screener catches a reviewed threat with probability REVIEWER_CATCH (then
@@ -89,9 +89,9 @@ REVIEWER_CATCH = 0.98
 # ------------------------------------------------------------------ sweep set-up
 CLEAN_MAX_IOU = 0.1  # a box counts as "on empty content" if its IoU with every real object is <= this
 THRESHOLDS = np.round(np.arange(1, 991) / 1000, 3)  # 0.001 to 0.990
-T_HIGH = 0.7  # the chosen upper threshold (REPORT.md): at or above it, straight to a manual search
+T_HIGH = 0.7  # the earlier proposed upper threshold, kept as an alternative to the cost-optimal pair
 T_LOW_OPTIONS = (0.05, 0.10, 0.15)  # lower thresholds shown next to the cost-optimal one
-REVIEWER_CATCH_OPTIONS = (0.9, 0.95, 0.98, 0.99, 1.0)  # reviewer catch rates shown for the chosen pair
+REVIEWER_CATCH_OPTIONS = (0.9, 0.95, 0.98, 0.99, 1.0)  # reviewer catch rates shown for the t_high = 0.7 pair
 
 
 @dataclass(frozen=True)
@@ -312,7 +312,12 @@ def best_pair(
 
 
 def chosen_pair(scores: BagScores, costs: Costs = DEFAULT_COSTS) -> tuple[float, float]:
-    """The chosen policy: t_high fixed at T_HIGH, t_low the cost-optimal lower threshold for it."""
+    """The chosen policy: the cost-optimal (t_low, t_high) pair over both thresholds."""
+    return best_pair(scores, costs)
+
+
+def pair_at_0_7(scores: BagScores, costs: Costs = DEFAULT_COSTS) -> tuple[float, float]:
+    """The earlier proposal: t_high fixed at T_HIGH, t_low the cost-optimal lower threshold for it."""
     return best_pair(scores, costs, t_high=T_HIGH)
 
 
@@ -371,7 +376,7 @@ def sensitivity(scores: BagScores, costs: Costs = DEFAULT_COSTS, predictions: Pa
 def _sensitivity_row(label: str, change: dict, scores: BagScores, k: Costs) -> dict:
     t = best_threshold(scores, k)
     t_low, t_high = best_pair(scores, k)
-    t_low_07, _ = chosen_pair(scores, k)
+    t_low_07, _ = pair_at_0_7(scores, k)
     design, at_07 = evaluate(scores, t_low, t_high, k), evaluate(scores, t_low_07, T_HIGH, k)
     return {
         "case": label,
@@ -397,14 +402,14 @@ def comparison(scores: BagScores, costs: Costs = DEFAULT_COSTS) -> list[dict]:
     k, inf = costs, np.inf
     t = best_threshold(scores, k)
     t_low, t_high = best_pair(scores, k)
-    t_low_07, _ = chosen_pair(scores, k)
+    t_low_07, _ = pair_at_0_7(scores, k)
     return [
         {"option": "Do nothing (every bag passes)", **_row(evaluate(scores, inf, inf, k))},
         {"option": "A person checks every image", **_row(evaluate(scores, -inf, inf, k))},
         {"option": "Search every bag by hand", **_row(evaluate(scores, -inf, -inf, k))},
         {"option": f"Model alone, best single threshold (t = {t:g})", **_row(evaluate(scores, t, None, k))},
-        {"option": f"Chosen policy: model + review ({t_low_07:g} / {T_HIGH:g})", **_row(evaluate(scores, t_low_07, T_HIGH, k))},
-        {"option": f"Model + review, cost-optimal pair ({t_low:g} / {t_high:g})", **_row(evaluate(scores, t_low, t_high, k))},
+        {"option": f"Earlier proposal: model + review ({t_low_07:g} / {T_HIGH:g})", **_row(evaluate(scores, t_low_07, T_HIGH, k))},
+        {"option": f"Chosen policy: model + review, cost-optimal pair ({t_low:g} / {t_high:g})", **_row(evaluate(scores, t_low, t_high, k))},
     ]
 
 
@@ -520,9 +525,10 @@ def run(predictions: Path = PREDICTIONS, out_dir: Path = ARTIFACTS_DIR) -> dict:
     k = DEFAULT_COSTS
     t = best_threshold(scores, k)
     t_low, t_high = best_pair(scores, k)
-    t_low_07, _ = chosen_pair(scores, k)
+    t_low_07, _ = pair_at_0_7(scores, k)
     curve = sweep(scores, k)
-    chosen = evaluate(scores, t_low_07, T_HIGH, k)
+    chosen = evaluate(scores, t_low, t_high, k)
+    at_07 = evaluate(scores, t_low_07, T_HIGH, k)
 
     result = {
         "method": {
@@ -533,7 +539,8 @@ def run(predictions: Path = PREDICTIONS, out_dir: Path = ARTIFACTS_DIR) -> dict:
             "clean_score": f"stand-in: highest confidence among boxes with IoU <= {CLEAN_MAX_IOU} with every ground-truth box",
             "model_alone": "searched if score >= t, else pass",
             "design": "pass if score < t_low, review if t_low <= score < t_high, search if score >= t_high",
-            "chosen_policy": f"design with t_high = {T_HIGH} and the cost-optimal t_low for it",
+            "chosen_policy": "design with the cost-optimal (t_low, t_high) pair",
+            "alternative_0_7": f"design with t_high = {T_HIGH} and the cost-optimal t_low for it (earlier proposal)",
             "reviewer": "catches a reviewed threat with probability reviewer_catch, clears a reviewed clean bag",
             "ties": "lowest threshold among equal costs",
         },
@@ -556,6 +563,7 @@ def run(predictions: Path = PREDICTIONS, out_dir: Path = ARTIFACTS_DIR) -> dict:
         "bag_scores": {"threat": scores.threat.round(4).tolist(), "clean": scores.clean.round(4).tolist()},
         "curve": {"threshold": THRESHOLDS.tolist(), "cost_per_1000": curve.round(2).tolist()},
         "chosen_policy": chosen,
+        "alternative_0_7": at_07,
         "alternative_single_threshold": evaluate(scores, t, None, k),
         "t_low_options": [evaluate(scores, v, T_HIGH, k) for v in sorted({*T_LOW_OPTIONS, t_low_07})],
         "reviewer_catch_sensitivity": [
@@ -566,7 +574,7 @@ def run(predictions: Path = PREDICTIONS, out_dir: Path = ARTIFACTS_DIR) -> dict:
         "model_alone": evaluate(scores, t, None, k),
         "model_alone_at_0.7": evaluate(scores, T_HIGH, None, k),
         "design_optimal": evaluate(scores, t_low, t_high, k),
-        "design_t_high_0.7": chosen,
+        "design_t_high_0.7": at_07,
         "comparison": comparison(scores, k),
         "break_even": {
             # Factor on every class's miss cost below which the best single threshold rises
@@ -579,7 +587,7 @@ def run(predictions: Path = PREDICTIONS, out_dir: Path = ARTIFACTS_DIR) -> dict:
 
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "cost_sweep.json").write_text(json.dumps(result, indent=2))
-    plot_cost_curve(scores, out_dir / "cost_curve.png", k, {"Lowest single-threshold cost": t}, band=(t_low_07, T_HIGH))
+    plot_cost_curve(scores, out_dir / "cost_curve.png", k, {"Lowest single-threshold cost": t}, band=(t_low, t_high))
     return result
 
 
@@ -589,7 +597,8 @@ def _print_summary(r: dict) -> None:
               f"review {100 * e['review_share']:6.2f}%  {e['reviews_per_day']:>8,.0f}/day  "
               f"{e['shifts_per_day']:6.1f} shifts")
 
-    line("Chosen policy (t_high = 0.7)", r["chosen_policy"])
+    line("Chosen policy (cost-optimal pair)", r["chosen_policy"])
+    line("Earlier proposal (t_high = 0.7)", r["alternative_0_7"])
     line("Alternative: one threshold", r["alternative_single_threshold"])
     line("Model alone at 0.7", r["model_alone_at_0.7"])
     line("Model + review (cost-optimal pair)", r["design_optimal"])
@@ -600,7 +609,7 @@ def _print_summary(r: dict) -> None:
               f"{e['reviews_per_day']:>7,.0f} reviews/day  {e['shifts_per_day']:5.1f} review shifts  "
               f"{e['searches_per_day']:>6,.0f} searches/day  {e['search_shifts_per_day']:4.1f} search shifts  "
               f"threat bags reviewed {e['test_counts']['threat']['review']}/156")
-    print("\nReviewer catch rate, chosen policy:")
+    print("\nReviewer catch rate, t_high = 0.7:")
     for e in r["reviewer_catch_sensitivity"]:
         print(f"  {100 * e['reviewer_catch']:7.3f}%  EUR {e['cost_per_1000']:>9,.0f}")
     print("\nTest threat bags by most severe object:", r["test_bags"]["threat_by_most_severe_class"])

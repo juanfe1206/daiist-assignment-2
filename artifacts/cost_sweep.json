@@ -7,7 +7,8 @@
     "clean_score": "stand-in: highest confidence among boxes with IoU <= 0.1 with every ground-truth box",
     "model_alone": "searched if score >= t, else pass",
     "design": "pass if score < t_low, review if t_low <= score < t_high, search if score >= t_high",
-    "chosen_policy": "design with t_high = 0.7 and the cost-optimal t_low for it",
+    "chosen_policy": "design with the cost-optimal (t_low, t_high) pair",
+    "alternative_0_7": "design with t_high = 0.7 and the cost-optimal t_low for it (earlier proposal)",
     "reviewer": "catches a reviewed threat with probability reviewer_catch, clears a reviewed clean bag",
     "ties": "lowest threshold among equal costs"
   },
@@ -2349,6 +2350,70 @@
   },
   "chosen_policy": {
     "t_low": 0.15,
+    "t_high": 0.561,
+    "cost_per_1000": 133.0442307692309,
+    "review_share": 0.1089615384615384,
+    "search_share": 0.02011538461538466,
+    "pass_share": 0.8709230769230769,
+    "per_1000_bags": {
+      "threat": {
+        "pass": 0.0,
+        "review": 0.09615384615384615,
+        "search": 0.9038461538461539
+      },
+      "clean": {
+        "pass": 870.9230769230769,
+        "review": 108.86538461538456,
+        "search": 19.211538461538503
+      }
+    },
+    "test_counts": {
+      "threat": {
+        "pass": 0,
+        "review": 15,
+        "search": 141
+      },
+      "clean": {
+        "pass": 136,
+        "review": 17,
+        "search": 3
+      }
+    },
+    "test_counts_by_class": {
+      "Gun": {
+        "pass": 0,
+        "review": 0,
+        "search": 49
+      },
+      "Knife": {
+        "pass": 0,
+        "review": 0,
+        "search": 29
+      },
+      "Scissors": {
+        "pass": 0,
+        "review": 7,
+        "search": 35
+      },
+      "Pliers": {
+        "pass": 0,
+        "review": 7,
+        "search": 18
+      },
+      "Wrench": {
+        "pass": 0,
+        "review": 1,
+        "search": 10
+      }
+    },
+    "reviews_per_day": 9882.811538461532,
+    "review_hours_per_day": 82.35676282051277,
+    "shifts_per_day": 15.441893028846145,
+    "searches_per_day": 1824.4653846153888,
+    "search_shifts_per_day": 7.60193910256412
+  },
+  "alternative_0_7": {
+    "t_low": 0.15,
     "t_high": 0.7,
     "cost_per_1000": 343.3100641025644,
     "review_share": 0.1090064102564102,
@@ -3359,7 +3424,7 @@
       "search_shifts_per_day": 48.7803205128205
     },
     {
-      "option": "Chosen policy: model + review (0.15 / 0.7)",
+      "option": "Earlier proposal: model + review (0.15 / 0.7)",
       "cost_per_1000": 343.3100641025644,
       "review_share": 0.1090064102564102,
       "search_share": 0.020070512820512865,
@@ -3369,7 +3434,7 @@
       "search_shifts_per_day": 7.58498130341882
     },
     {
-      "option": "Model + review, cost-optimal pair (0.15 / 0.561)",
+      "option": "Chosen policy: model + review, cost-optimal pair (0.15 / 0.561)",
       "cost_per_1000": 133.0442307692309,
       "review_share": 0.1089615384615384,
       "search_share": 0.02011538461538466,
