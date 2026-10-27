@@ -31,7 +31,7 @@ Method:
   It is only an approximation: the empty part of a threat bag is smaller and
   more cluttered than a real clean bag.
 - Model alone: a bag is searched if its score >= t, otherwise it passes.
-- Model + person (the chosen policy: the cost-optimal pair t_low / t_high):
+- Model + screener (the chosen policy: the cost-optimal pair t_low / t_high):
   score < t_low passes, t_low <= score < t_high goes to a screener for a second
   look, score >= t_high goes straight to a manual search.
   The screener catches a reviewed threat with probability REVIEWER_CATCH (then
@@ -565,7 +565,7 @@ def plot_cost_curve(val: BagScores, test: BagScores, path: Path | None = None, c
     ax.set_facecolor(surface)
     ax.step(THRESHOLDS, sweep(test, costs), where="post", color=grey, lw=1.5, label="Model alone (one threshold), test")
     ax.step(THRESHOLDS, policy_curve(val, hi, costs), where="post", color=orange, lw=1.8,
-            label=f"Model + screener, t_high = {hi:g}, validation (chooses)")
+            label=f"Model + screener, t_high = {hi:g}, validation (thresholds chosen here)")
     ax.step(THRESHOLDS, policy_curve(test, hi, costs), where="post", color=blue, lw=2.2,
             label=f"Model + screener, t_high = {hi:g}, test (reported)")
     for split, scores, colour in (("val", val, orange), ("test", test, blue)):
@@ -643,7 +643,7 @@ def run(predictions: Path = PREDICTIONS, out_dir: Path = ARTIFACTS_DIR, val_pred
             "design": "pass if score < t_low, review if t_low <= score < t_high, search if score >= t_high",
             "chosen_policy": "design with the cost-optimal (t_low, t_high) pair on validation",
             "alternative_0_7": f"design with t_high = {T_HIGH} and the cost-optimal t_low for it on validation (earlier proposal)",
-            "reviewer": "catches a reviewed threat with probability reviewer_catch; never sends a clean bag to search (reviewer_sends_clean = 0)",
+            "screener": "catches a checked threat with probability reviewer_catch; never sends a clean bag to search (reviewer_sends_clean = 0)",
             "ties": "lowest t_low, then lowest t_high, among equal costs",
             "counts": "plain bag counts in the split (not weighted)",
         },

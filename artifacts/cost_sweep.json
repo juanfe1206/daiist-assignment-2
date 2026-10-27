@@ -10,7 +10,7 @@
     "design": "pass if score < t_low, review if t_low <= score < t_high, search if score >= t_high",
     "chosen_policy": "design with the cost-optimal (t_low, t_high) pair on validation",
     "alternative_0_7": "design with t_high = 0.7 and the cost-optimal t_low for it on validation (earlier proposal)",
-    "reviewer": "catches a reviewed threat with probability reviewer_catch; never sends a clean bag to search (reviewer_sends_clean = 0)",
+    "screener": "catches a checked threat with probability reviewer_catch; never sends a clean bag to search (reviewer_sends_clean = 0)",
     "ties": "lowest t_low, then lowest t_high, among equal costs",
     "counts": "plain bag counts in the split (not weighted)"
   },

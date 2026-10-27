@@ -6,8 +6,8 @@ Assignment 2: Gradio dashboard for X-ray baggage screening.
 Nothing is trained here. It loads weights/best.pt, the validation and test bag
 scores (costing.py, from artifacts/val_predictions.json and test_predictions.json)
 and artifacts/metrics.json. The chosen policy is costing.chosen_pair: the
-cost-optimal (t_low, t_high) on the validation split. Every number shown is on
-the test split.
+cost-optimal (t_low, t_high) on the validation split. Costs are on the test
+split; the curve also shows validation.
 """
 
 import json
@@ -30,7 +30,7 @@ PORT = int(os.environ.get("APP_PORT", "7860"))  # check.py reads the same variab
 DECISIONS = {"pass": "Pass", "review": "Screener", "search": "Manual search"}
 
 METRICS = json.loads((ROOT / "artifacts" / "metrics.json").read_text())
-IMGSZ = int(METRICS.get("settings", {}).get("imgsz", 416))  # the size the model was evaluated at
+IMGSZ = int(METRICS.get("settings", {}).get("imgsz", 512))  # the size the model was evaluated at
 MODEL = YOLO(str(ROOT / "weights" / "best.pt"))
 VAL, SCORES = costing.load_splits()  # thresholds chosen on VAL, everything shown on SCORES (test)
 K = costing.DEFAULT_COSTS
@@ -43,7 +43,7 @@ ASSUMPTIONS = (
     + ", ".join(f"{c.lower()} {100 * v:g}%" for c, v in costing.THREAT_MIX.items())
     + f". Manual search €{K.fp:g}, screener check €{K.review:.2f}. "
     f"Base rate 1 threat bag in {1 / K.base_rate:,.0f}. Screener catches {100 * K.reviewer_catch:g}% of threats "
-    "and never sends a clean bag to search. Thresholds chosen on the validation split; numbers here are on the test split."
+    "and never sends a clean bag to search. Thresholds chosen on the validation split. Costs are on the test split; the curve also shows validation."
 )
 
 

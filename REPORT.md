@@ -85,7 +85,7 @@ Test split, at confidence 0.25 (confusion matrix in `artifacts/results_table.md`
 - **Scissors did better than expected** (recall 0.963).
 - **Mix-ups are rare**: 2 knives were called wrenches and 1 a gun.
 
-Recall here is per object at 0.25, while the policy below works per bag.
+IMPORTANT: Recall here is per object at 0.25, while the policy below works per bag.
 
 ## Cost matrix and operating point
 
@@ -139,8 +139,8 @@ correctly but with very low confidence (test: pliers 0.031, scissors 0.043). At
 pays for that one bag.
 
 **Staffing.** At an assumed 90,700 departing bags a day at Madrid-Barajas, the
-policy sends 7.7% to a screener (10.9 eight-hour shifts) and 2.7% to a search
-(10.1 shifts). A screener views every image today (142 shifts), so staff
+policy sends 7.7% to a screener and 2.7% to a search. 
+A screener views every image today (142 shifts), so staff
 suffices.
 
 | Option | Cost per 1,000 bags | Staff shifts a day (screener + search) |
