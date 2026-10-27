@@ -62,7 +62,7 @@ def cost_curve(t_low: float, t_high: float, cost: float):
     ax.plot([T_LOW], [CHOSEN_COST], "o", ms=9, color="#2a78d6", mec="white", mew=1.5,
             label=f"Chosen policy {T_LOW:g} / {T_HIGH:g}: €{CHOSEN_COST:,.0f}")
     ax.plot([t_low], [cost], "D", ms=7, color="#d6532a", label=f"Sliders {t_low:g} / {t_high:g}: €{cost:,.0f}")
-    ax.set(xscale="log", xlim=(0.001, 1), xlabel="t_low (log scale)", ylabel="Cost per 1,000 bags")
+    ax.set(xlim=(0, 1), xlabel="t_low", ylabel="Cost per 1,000 bags")
     costing.eur_axis(ax)
     ax.grid(alpha=0.3)
     ax.spines[["top", "right"]].set_visible(False)
