@@ -142,7 +142,7 @@ with gr.Blocks(title="X-ray baggage screening", analytics_enabled=False) as demo
                 image_in = gr.Image(type="pil", label="X-ray image")
                 image_out = gr.Image(label="Boxes at or above t_low")
             verdict = gr.Markdown()
-            boxes = gr.Dataframe(interactive=False, show_label=False)
+            boxes = gr.Dataframe(headers=["Class", "Confidence"], interactive=False, show_label=False)
         with gr.Tab("Per-class results"):
             gr.Dataframe(per_class(), label="Finetuned model, test split (precision and recall at confidence 0.25)",
                          interactive=False)
