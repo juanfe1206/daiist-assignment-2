@@ -9,7 +9,7 @@ Steps:
    YOLO format into datasets/ (gitignored). The key comes from api_key.py.
 2. Describe the dataset: images, empty images and instances per split, and
    bbox area relative to the image per class -> notes/dataset_stats.md.
-3. Finetune yolo11n from the COCO-pretrained checkpoint and copy best.pt to
+3. Finetune yolo11s from the COCO-pretrained checkpoint and copy best.pt to
    weights/best.pt.
 4. Evaluate on the test split, with the same code for all three models:
    the finetuned model, COCO yolo11n zero-shot (only COCO classes that exist in
@@ -54,9 +54,17 @@ NOTES_DIR = ROOT / "notes"
 RUNS_DIR = ROOT / "runs"
 
 # Model and training settings
-BASE_MODEL = "yolo11n.pt"  # COCO-pretrained; also the zero-shot baseline
-IMGSZ = 416  # the dataset is exported at 416x416 (stretch)
-TRAIN_ARGS = dict(epochs=50, batch=16, patience=15, seed=0, deterministic=True)
+BASE_MODEL = "yolo11s.pt"  # COCO-pretrained starting point for the finetune
+ZERO_SHOT_MODEL = "yolo11n.pt"  # COCO-pretrained zero-shot baseline
+# The dataset is exported at 416x416 (stretch). Training and inference upsample to 512
+# so small objects (scissors) cover more grid cells. 640 would fit a T4 only just.
+IMGSZ = 512
+TRAIN_ARGS = dict(
+    epochs=120, batch=16, patience=30, seed=0, deterministic=True, cos_lr=True, close_mosaic=15
+)
+# Key for the finetuned model in metrics.json / test_predictions.json. Taken from
+# costing.py so the cost sweep at the end always finds it.
+FINETUNED = costing.MODEL
 
 # Evaluation settings
 PRED_CONF = 0.001  # keep almost every box; operating thresholds are chosen later
@@ -355,21 +363,22 @@ def evaluate_all(weights: Path, data_dir: Path, data_yaml: Path, names: list[str
     gts = ground_truth(images)
 
     finetuned = YOLO(str(weights))
-    coco = YOLO(BASE_MODEL)
+    coco = YOLO(ZERO_SHOT_MODEL)
     lower = {n.lower(): k for k, n in enumerate(names)}
     coco_map = {cid: lower[cname.lower()] for cid, cname in coco.names.items() if cname.lower() in lower}
     print(f"COCO classes used zero-shot: {[coco.names[c] for c in coco_map]}")
 
     preds = {
-        "finetuned_yolo11n": predict(finetuned, images, {k: k for k in range(len(names))}),
+        FINETUNED: predict(finetuned, images, {k: k for k in range(len(names))}),
         "coco_yolo11n_zero_shot": predict(coco, images, coco_map),
         "predict_nothing": [np.zeros((0, 6)) for _ in images],
     }
     metrics = {name: evaluate(gts, p, names) for name, p in preds.items()}
-    metrics["finetuned_yolo11n"]["ultralytics_val_test"] = ultralytics_test_val(weights, data_yaml)
+    metrics[FINETUNED]["ultralytics_val_test"] = ultralytics_test_val(weights, data_yaml)
     metrics["settings"] = {
         "dataset": f"{WORKSPACE}/{PROJECT}/{VERSION}",
         "base_model": BASE_MODEL,
+        "zero_shot_model": ZERO_SHOT_MODEL,
         "imgsz": IMGSZ,
         **TRAIN_ARGS,
         "pred_conf": PRED_CONF,
@@ -398,7 +407,7 @@ def evaluate_all(weights: Path, data_dir: Path, data_yaml: Path, names: list[str
 
 
 def write_results_table(metrics: dict, names: list[str]) -> None:
-    models = ["finetuned_yolo11n", "coco_yolo11n_zero_shot", "predict_nothing"]
+    models = [FINETUNED, "coco_yolo11n_zero_shot", "predict_nothing"]
 
     def fmt(x):
         return "n/a" if x is None else f"{x:.3f}"
