@@ -41,4 +41,4 @@ files.download("outputs.zip")
 
 5. Unzip `outputs.zip` into the local repo so `weights/best.pt` and `artifacts/` land in place, then commit them.
 
-On a T4, 50 epochs of yolo11n at 416 px take about 26 minutes.
+The submitted model (yolo11s, 512 px, 70 epochs) was trained on a Kaggle T4 GPU with the same pipeline, after Colab's free GPU quota ran out. The Kaggle notebook only swaps the Colab secret for a Kaggle secret (`ROBOFLOW_API_KEY`).

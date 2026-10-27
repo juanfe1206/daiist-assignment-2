@@ -81,14 +81,14 @@ C_TN = 0.0  # clean bag passes (EUR)
 
 # Cost of a threat that gets through, by what it is (EUR). Round figures set by
 # how much harm the item can do on board: a gun is the worst case, a knife half
-# of it, scissors a tenth of a knife, pliers and a wrench lower again (blunt
-# tools that are hard to use as a weapon in a cabin).
+# of it, and scissors, pliers and a wrench far lower (small tools that are hard
+# to use as a weapon in a cabin).
 MISS_COST = {
     "Gun": 1_000_000.0,
     "Knife": 500_000.0,
-    "Scissors": 50_000.0,
-    "Pliers": 20_000.0,
-    "Wrench": 20_000.0,
+    "Scissors": 5_000.0,
+    "Pliers": 5_000.0,
+    "Wrench": 5_000.0,
 }
 
 # ASSUMPTION: what the threat bags at a real checkpoint hold, by most severe
