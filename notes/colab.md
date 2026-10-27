@@ -41,4 +41,4 @@ files.download("outputs.zip")
 
 5. Unzip `outputs.zip` into the local repo so `weights/best.pt` and `artifacts/` land in place, then commit them.
 
-On a T4, 120 epochs of yolo11s at 512 px take about 1.5 hours. Early stopping (patience 30) can end it sooner.
+On a T4, 50 epochs of yolo11n at 416 px take about 26 minutes.

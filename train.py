@@ -9,7 +9,7 @@ Steps:
    YOLO format into datasets/ (gitignored). The key comes from api_key.py.
 2. Describe the dataset: images, empty images and instances per split, and
    bbox area relative to the image per class -> notes/dataset_stats.md.
-3. Finetune yolo11s from the COCO-pretrained checkpoint and copy best.pt to
+3. Finetune yolo11n from the COCO-pretrained checkpoint and copy best.pt to
    weights/best.pt.
 4. Evaluate on the test split, with the same code for all three models:
    the finetuned model, COCO yolo11n zero-shot (only COCO classes that exist in
@@ -56,14 +56,10 @@ NOTES_DIR = ROOT / "notes"
 RUNS_DIR = ROOT / "runs"
 
 # Model and training settings
-BASE_MODEL = "yolo11s.pt"  # COCO-pretrained starting point for the finetune
+BASE_MODEL = "yolo11n.pt"  # COCO-pretrained starting point for the finetune
 ZERO_SHOT_MODEL = "yolo11n.pt"  # COCO-pretrained zero-shot baseline
-# The dataset is exported at 416x416 (stretch). Training and inference upsample to 512
-# so small objects (scissors) cover more grid cells. 640 would fit a T4 only just.
-IMGSZ = 512
-TRAIN_ARGS = dict(
-    epochs=120, batch=16, patience=30, seed=0, deterministic=True, cos_lr=True, close_mosaic=15
-)
+IMGSZ = 416  # the dataset is exported at 416x416 (stretch)
+TRAIN_ARGS = dict(epochs=50, batch=16, patience=15, seed=0, deterministic=True)
 # Key for the finetuned model in metrics.json / *_predictions.json. Taken from
 # costing.py so the cost sweep at the end always finds it (older runs wrote
 # "finetuned_yolo11n"; costing.model_key accepts either).
